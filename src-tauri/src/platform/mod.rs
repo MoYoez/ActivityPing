@@ -108,6 +108,16 @@ pub fn platform_name() -> &'static str {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub fn display_name_for_app_id(app_id: &str) -> Option<String> {
+    macos::read_bundle_display_name(app_id)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn display_name_for_app_id(_app_id: &str) -> Option<String> {
+    None
+}
+
 pub fn make_probe(
     success: bool,
     summary: ProbeTextSpec,

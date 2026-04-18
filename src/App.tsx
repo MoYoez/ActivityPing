@@ -11,7 +11,9 @@ import {
   hideToTray,
   isAutostartEnabled,
   loadAppState,
+  requestAccessibilityPermission,
   resolveApiError,
+  runPlatformSelfTest,
   saveAppState,
   setAutostartEnabled,
   startDiscordPresenceSync,
@@ -30,6 +32,8 @@ import type {
   DiscordDebugPayload,
   DiscordPresenceSnapshot,
   DiscordReportMode,
+  PlatformProbeResult,
+  PlatformSelfTestResult,
   RealtimeReporterSnapshot,
 } from "./types";
 
@@ -192,6 +196,10 @@ const EMPTY_DISCORD: DiscordPresenceSnapshot = {
   currentSummary: null,
   debugPayload: null,
 };
+
+function probeBadgeClass(probe: PlatformProbeResult) {
+  return probe.success ? GOOD_BADGE_CLASS : "badge badge-error badge-soft";
+}
 
 const SECTION_COPY: Record<ViewSection, { kicker: string; title: string; description: string }> = {
   settings: {
@@ -408,6 +416,7 @@ function App() {
   const [config, setConfig] = useState(defaultClientConfig());
   const [reporterSnapshot, setReporterSnapshot] = useState(EMPTY_REPORTER);
   const [discordSnapshot, setDiscordSnapshot] = useState(EMPTY_DISCORD);
+  const [platformSelfTest, setPlatformSelfTest] = useState<PlatformSelfTestResult | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
@@ -455,6 +464,41 @@ function App() {
 
   async function persist(nextConfig: ClientConfig, syncConfig = true) {
     await persistPayload(buildPayload(baseState, nextConfig), syncConfig);
+  }
+
+  async function refreshPlatformSelfTest(showNotice = false) {
+    const result = await runPlatformSelfTest();
+    if (!result.success || !result.data) {
+      if (showNotice) {
+        notify("error", "Self-test failed", resolveApiError(result, "Platform self-test could not be completed."));
+      }
+      return;
+    }
+
+    setPlatformSelfTest(result.data);
+    if (showNotice) {
+      notify("info", "Self-test updated", "Platform capture checks were refreshed.");
+    }
+  }
+
+  async function requestPlatformAccessibilityPermission() {
+    const result = await requestAccessibilityPermission();
+    if (!result.success) {
+      notify("warn", "Permission request unavailable", resolveApiError(result, "Accessibility permission could not be requested."));
+      return;
+    }
+
+    if (result.data) {
+      notify("success", "Permission granted", "Accessibility permission is available for window title capture.");
+    } else {
+      notify(
+        "info",
+        "Permission prompt opened",
+        "Grant Accessibility permission in System Settings > Privacy & Security > Accessibility, then refresh the self-test.",
+      );
+    }
+
+    await refreshPlatformSelfTest(false);
   }
 
   async function saveProfile(successTitle: string, successDetail: string) {
@@ -598,6 +642,12 @@ function App() {
       setHydrated(true);
       await refreshReporter();
       await refreshDiscord();
+      if (!cancelled && caps.success && caps.data?.platformSelfTest) {
+        const selfTest = await runPlatformSelfTest();
+        if (!cancelled && selfTest.success && selfTest.data) {
+          setPlatformSelfTest(selfTest.data);
+        }
+      }
     })();
     return () => {
       cancelled = true;
@@ -883,6 +933,77 @@ function App() {
           ) : null}
         </div>
       </section>
+
+      {capabilities.platformSelfTest ? (
+        <section className={PANEL_CLASS}>
+          <div className={PANEL_HEAD_CLASS}>
+            <div>
+              <p className="eyebrow">Platform</p>
+              <h3>Permissions and self-test</h3>
+            </div>
+          </div>
+          <div className="card-actions gap-2">
+            <button
+              className={BUTTON_CLASS}
+              type="button"
+              disabled={busy.platformSelfTest}
+              onClick={() => runAction("platformSelfTest", async () => refreshPlatformSelfTest(true))}
+            >
+              {busy.platformSelfTest ? "Running..." : "Run self-test"}
+            </button>
+            <button
+              className={BUTTON_CLASS}
+              type="button"
+              disabled={busy.accessibilityPermission}
+              onClick={() => runAction("accessibilityPermission", requestPlatformAccessibilityPermission)}
+            >
+              {busy.accessibilityPermission ? "Requesting..." : "Request Accessibility Permission"}
+            </button>
+          </div>
+          {platformSelfTest ? (
+            <>
+              <div className="stat-grid">
+                {[
+                  { label: "Foreground app", probe: platformSelfTest.foreground },
+                  { label: "Window title", probe: platformSelfTest.windowTitle },
+                  { label: "Media capture", probe: platformSelfTest.media },
+                ].map(({ label, probe }) => (
+                  <div key={label} className={STAT_CARD_CLASS}>
+                    <span>{label}</span>
+                    <strong>{probe.summary}</strong>
+                    <div className="platform-probe-badge-row">
+                      <span className={probeBadgeClass(probe)}>{probe.success ? "OK" : "Needs attention"}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="platform-probe-list">
+                {[
+                  { label: "Foreground app", probe: platformSelfTest.foreground },
+                  { label: "Window title", probe: platformSelfTest.windowTitle },
+                  { label: "Media capture", probe: platformSelfTest.media },
+                ].map(({ label, probe }) => (
+                  <div key={label} className="empty-state platform-probe-card">
+                    <strong>{label}</strong>
+                    <p>{probe.detail}</p>
+                    {probe.guidance?.length ? (
+                      <ul>
+                        {probe.guidance.map((item) => (
+                          <li key={`${label}-${item}`}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="empty-state">
+              Run the self-test to check foreground app capture, window titles, and media capture on this machine.
+            </div>
+          )}
+        </section>
+      ) : null}
 
       <section className={PANEL_CLASS}>
         <div className={PANEL_HEAD_CLASS}>

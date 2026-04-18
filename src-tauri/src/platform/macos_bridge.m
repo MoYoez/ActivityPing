@@ -19,6 +19,16 @@ char *waken_frontmost_app_name(void) {
     return strdup([localizedName UTF8String]);
 }
 
+char *waken_frontmost_app_bundle_identifier(void) {
+    NSRunningApplication *frontmostApp = [[NSWorkspace sharedWorkspace] frontmostApplication];
+    if (!frontmostApp) return NULL;
+
+    NSString *bundleIdentifier = frontmostApp.bundleIdentifier;
+    if (!bundleIdentifier || bundleIdentifier.length == 0) return NULL;
+
+    return strdup([bundleIdentifier UTF8String]);
+}
+
 char *waken_frontmost_window_title(void) {
     NSRunningApplication *frontmostApp = [[NSWorkspace sharedWorkspace] frontmostApplication];
     if (!frontmostApp) return NULL;
@@ -158,6 +168,36 @@ char *waken_bundle_icon_png_base64(const char *bundle_identifier) {
     if (!base64 || base64.length == 0) return NULL;
 
     return strdup([base64 UTF8String]);
+}
+
+char *waken_bundle_display_name(const char *bundle_identifier) {
+    if (bundle_identifier == NULL) return NULL;
+
+    NSString *bundleIdentifier = [NSString stringWithUTF8String:bundle_identifier];
+    if (!bundleIdentifier || bundleIdentifier.length == 0) return NULL;
+
+    NSWorkspace *workspace = [NSWorkspace sharedWorkspace];
+    NSURL *appURL = [workspace URLForApplicationWithBundleIdentifier:bundleIdentifier];
+    NSString *displayName = nil;
+
+    if (appURL.path.length > 0) {
+        displayName = [workspace localizedNameForFile:appURL.path];
+        if (!displayName || displayName.length == 0) {
+            displayName = [[NSFileManager defaultManager] displayNameAtPath:appURL.path];
+        }
+    }
+
+    if (!displayName || displayName.length == 0) {
+        NSArray<NSRunningApplication *> *runningApps =
+            [NSRunningApplication runningApplicationsWithBundleIdentifier:bundleIdentifier];
+        if (runningApps.count > 0) {
+            displayName = runningApps.firstObject.localizedName;
+        }
+    }
+
+    if (!displayName || displayName.length == 0) return NULL;
+
+    return strdup([displayName UTF8String]);
 }
 
 void waken_string_free(char *value) {

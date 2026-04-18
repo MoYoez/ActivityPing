@@ -18,7 +18,7 @@ use crate::{
         DiscordReportMode,
     },
     platform::{
-        get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing,
+        display_name_for_app_id, get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing,
         MediaArtwork, MediaInfo,
     },
     rules::{normalize_client_config, resolve_activity},
@@ -808,6 +808,10 @@ mod tests {
 }
 
 fn fallback_app_name(source: &str) -> String {
+    if let Some(display_name) = display_name_for_app_id(source) {
+        return display_name;
+    }
+
     let trimmed = source.trim();
     if trimmed.is_empty() {
         return "Playback app".to_string();

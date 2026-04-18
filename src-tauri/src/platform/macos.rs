@@ -27,8 +27,10 @@ const NOWPLAYING_CLI_FALLBACK_PATHS: [&str; 2] = [
 
 unsafe extern "C" {
     fn waken_frontmost_app_name() -> *mut c_char;
+    fn waken_frontmost_app_bundle_identifier() -> *mut c_char;
     fn waken_frontmost_window_title() -> *mut c_char;
     fn waken_bundle_icon_png_base64(bundle_identifier: *const c_char) -> *mut c_char;
+    fn waken_bundle_display_name(bundle_identifier: *const c_char) -> *mut c_char;
     fn waken_accessibility_is_trusted() -> bool;
     fn waken_request_accessibility_permission() -> bool;
     fn waken_string_free(value: *mut c_char);
@@ -92,6 +94,16 @@ struct RawNowPlayingInfo {
     album: Option<String>,
     #[serde(rename = "kMRMediaRemoteNowPlayingInfoClientBundleIdentifier")]
     client_bundle_identifier: Option<String>,
+    #[serde(
+        rename = "kMRMediaRemoteNowPlayingInfoArtworkData",
+        alias = "artworkData"
+    )]
+    artwork_data: Option<String>,
+    #[serde(
+        rename = "kMRMediaRemoteNowPlayingInfoArtworkMIMEType",
+        alias = "artworkMimeType"
+    )]
+    artwork_mime_type: Option<String>,
     #[serde(rename = "kMRMediaRemoteNowPlayingInfoDuration", alias = "duration")]
     duration: Option<f64>,
     #[serde(
@@ -183,6 +195,20 @@ fn get_now_playing_via_nowplaying_cli() -> Result<MediaInfo, NowPlayingCliError>
         .unwrap_or_else(|| !title.is_empty() || !artist.is_empty() || !album.is_empty());
     let duration_ms = seconds_to_millis(raw.duration).filter(|value| *value > 0);
     let position_ms = seconds_to_millis(raw.elapsed_time);
+    let artwork = raw
+        .artwork_data
+        .as_deref()
+        .and_then(decode_base64_image_payload)
+        .and_then(|bytes| {
+            let content_type = raw
+                .artwork_mime_type
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| value.starts_with("image/"))
+                .map(str::to_string)
+                .or_else(|| detect_image_content_type(&bytes).map(str::to_string))?;
+            Some(super::MediaArtwork { bytes, content_type })
+        });
     let source_icon = read_source_app_icon(&source_app_id);
 
     Ok(MediaInfo {
@@ -193,7 +219,7 @@ fn get_now_playing_via_nowplaying_cli() -> Result<MediaInfo, NowPlayingCliError>
         is_playing,
         duration_ms,
         position_ms,
-        artwork: None,
+        artwork,
         source_icon,
     })
 }
@@ -203,7 +229,38 @@ fn seconds_to_millis(value: Option<f64>) -> Option<u64> {
     (seconds.is_finite() && seconds >= 0.0).then_some((seconds * 1_000.0).round() as u64)
 }
 
-fn read_source_app_icon(bundle_identifier: &str) -> Option<super::MediaArtwork> {
+fn decode_base64_image_payload(value: &str) -> Option<Vec<u8>> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("null") {
+        return None;
+    }
+
+    let encoded = trimmed
+        .split_once(',')
+        .map(|(_, payload)| payload)
+        .unwrap_or(trimmed);
+
+    BASE64_STANDARD
+        .decode(encoded.trim())
+        .ok()
+        .filter(|bytes| !bytes.is_empty())
+}
+
+fn detect_image_content_type(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("image/jpeg")
+    } else if bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        Some("image/png")
+    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        Some("image/gif")
+    } else if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else {
+        None
+    }
+}
+
+fn read_bundle_icon(bundle_identifier: &str) -> Option<super::MediaArtwork> {
     let cache_key = bundle_identifier.trim();
     if cache_key.is_empty() || cache_key.eq_ignore_ascii_case(NOWPLAYING_CLI) {
         return None;
@@ -219,11 +276,8 @@ fn read_source_app_icon(bundle_identifier: &str) -> Option<super::MediaArtwork> 
     }
 
     let c_bundle_identifier = CString::new(cache_key).ok()?;
-    let base64_png =
-        read_bridge_string_with_input(waken_bundle_icon_png_base64, c_bundle_identifier.as_c_str());
-    let icon = base64_png
-        .and_then(|value| BASE64_STANDARD.decode(value.trim()).ok())
-        .filter(|bytes| !bytes.is_empty())
+    let icon = read_bridge_string_with_input(waken_bundle_icon_png_base64, c_bundle_identifier.as_c_str())
+        .and_then(|value| decode_base64_image_payload(&value))
         .map(|bytes| super::MediaArtwork {
             bytes,
             content_type: "image/png".to_string(),
@@ -235,6 +289,17 @@ fn read_source_app_icon(bundle_identifier: &str) -> Option<super::MediaArtwork> 
         .insert(cache_key.to_string(), icon.clone());
 
     icon
+}
+
+fn read_source_app_icon(bundle_identifier: &str) -> Option<super::MediaArtwork> {
+    read_bundle_icon(bundle_identifier)
+}
+
+pub fn read_bundle_display_name(bundle_identifier: &str) -> Option<String> {
+    let c_bundle_identifier = CString::new(bundle_identifier.trim()).ok()?;
+    read_bridge_string_with_input(waken_bundle_display_name, c_bundle_identifier.as_c_str())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 fn read_bridge_string_with_input(
@@ -344,7 +409,9 @@ pub fn get_now_playing() -> Result<MediaInfo, String> {
 }
 
 pub fn get_foreground_app_icon() -> Result<Option<super::MediaArtwork>, String> {
-    Ok(None)
+    let bundle_identifier = read_bridge_string(waken_frontmost_app_bundle_identifier)
+        .unwrap_or_default();
+    Ok(read_bundle_icon(&bundle_identifier))
 }
 
 fn macos_guidance(error: &str, probe: &str) -> Vec<ProbeTextSpec> {

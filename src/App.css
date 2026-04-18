@@ -485,6 +485,35 @@ textarea {
   padding-right: 4px;
 }
 
+.platform-probe-list {
+  display: grid;
+  gap: 12px;
+}
+
+.platform-probe-card strong {
+  display: block;
+  font-weight: 700;
+}
+
+.platform-probe-card p {
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
+.platform-probe-card ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.platform-probe-card li + li {
+  margin-top: 6px;
+}
+
+.platform-probe-badge-row {
+  margin-top: 10px;
+  display: flex;
+}
+
 .log-entry {
   border-left-width: 3px;
 }
@@ -701,6 +730,33 @@ textarea {
     min-height: 0;
   }
 
+}
+
+@media (max-height: 820px) {
+  body {
+    overflow: auto;
+  }
+
+  .shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .app-frame {
+    height: auto;
+    min-height: calc(100vh - 36px);
+    overflow: visible;
+  }
+
+  .content-body {
+    overflow: visible;
+  }
+
+  .runtime-log-feed,
+  .debug-json {
+    max-height: none;
+  }
 }
 
 @media (max-width: 720px) {

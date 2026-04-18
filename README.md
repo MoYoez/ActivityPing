@@ -44,28 +44,31 @@ ActivityPing is a Tauri desktop app that watches foreground apps, window titles,
     <td align="center"><strong>RPC and monitor settings</strong></td>
   </tr>
   <tr>
-    <td><img src="./.github/Assets/preview_main_rule_groups.png" alt="ActivityPing rule groups" width="100%"></td>
-    <td><img src="./.github/Assets/preview_main_custom_mode.png" alt="ActivityPing custom mode" width="100%"></td>
+    <td colspan="2"><img src="./.github/Assets/preview_main_rule_groups.png" alt="ActivityPing rule groups" width="100%"></td>
   </tr>
   <tr>
-    <td align="center"><strong>Rule group editor</strong></td>
-    <td align="center"><strong>Custom Discord mode</strong></td>
+    <td colspan="2" align="center"><strong>Rule group editor</strong></td>
   </tr>
+</table>
+
+<table>
   <tr>
     <td><img src="./.github/Assets/preview_main_app_mode.png" alt="ActivityPing app mode" width="100%"></td>
+    <td><img src="./.github/Assets/preview_main_custom_mode.png" alt="ActivityPing custom mode" width="100%"></td>
     <td><img src="./.github/Assets/preview_main_music_mode.png" alt="ActivityPing music mode" width="100%"></td>
   </tr>
   <tr>
     <td align="center"><strong>App mode</strong></td>
+    <td align="center"><strong>Custom Discord mode</strong></td>
     <td align="center"><strong>Music mode</strong></td>
   </tr>
-  <tr>
-    <td colspan="2"><img src="./.github/Assets/preview_main_smart_mode_with_music.png" alt="ActivityPing smart mode with music" width="100%"></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><strong>Smart mode with music</strong></td>
-  </tr>
 </table>
+
+<p align="center">
+  <img src="./.github/Assets/preview_main_smart_mode_with_music.png" alt="ActivityPing smart mode with music" width="520">
+</p>
+
+<p align="center"><strong>Smart mode with music</strong></p>
 
 ## What It Does
 
