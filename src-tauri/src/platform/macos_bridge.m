@@ -181,10 +181,7 @@ char *waken_bundle_display_name(const char *bundle_identifier) {
     NSString *displayName = nil;
 
     if (appURL.path.length > 0) {
-        displayName = [workspace localizedNameForFile:appURL.path];
-        if (!displayName || displayName.length == 0) {
-            displayName = [[NSFileManager defaultManager] displayNameAtPath:appURL.path];
-        }
+        displayName = [[NSFileManager defaultManager] displayNameAtPath:appURL.path];
     }
 
     if (!displayName || displayName.length == 0) {
