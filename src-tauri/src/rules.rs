@@ -29,6 +29,11 @@ pub fn normalize_client_config(config: &mut ClientConfig) {
         || config.legacy_discord_enabled;
     config.legacy_reporter_enabled = false;
     config.legacy_discord_enabled = false;
+    config.discord_use_app_artwork =
+        config.discord_use_app_artwork || config.legacy_discord_use_media_artwork;
+    config.discord_use_music_artwork =
+        config.discord_use_music_artwork || config.legacy_discord_use_media_artwork;
+    config.legacy_discord_use_media_artwork = false;
     config.discord_application_id = config.discord_application_id.trim().to_string();
     config.discord_artwork_worker_upload_url =
         config.discord_artwork_worker_upload_url.trim().to_string();
@@ -104,14 +109,7 @@ pub fn resolve_activity(
         process_title_raw.as_deref(),
         process_title_masked.as_deref(),
         &config.app_message_rules,
-    )
-    .map(|text| {
-        if config.app_message_rules_show_process_name && !process_name.is_empty() {
-            format!("{text} | {process_name}")
-        } else {
-            text
-        }
-    });
+    );
 
     let display_title = if status_text.is_some() {
         None
@@ -130,11 +128,26 @@ pub fn resolve_activity(
         return None;
     };
 
-    let summary = discord_state
-        .as_ref()
-        .map(|state| format!("{discord_details} · {state}"))
-        .unwrap_or_else(|| discord_details.clone());
-    let signature = summary.clone();
+    let mut summary_parts = vec![discord_details.clone()];
+    if let Some(state) = discord_state.as_ref() {
+        summary_parts.push(state.clone());
+    }
+    let summary = summary_parts.join(" · ");
+
+    let mut signature_parts = summary_parts;
+    if config.discord_report_mode == DiscordReportMode::Mixed {
+        if config.report_foreground_app && !process_name.is_empty() {
+            if !signature_parts.iter().any(|value| value == &process_name) {
+                signature_parts.push(process_name.clone());
+            }
+        }
+        if let Some(media_summary) = media_summary.as_ref() {
+            if !signature_parts.iter().any(|value| value == media_summary) {
+                signature_parts.push(media_summary.clone());
+            }
+        }
+    }
+    let signature = signature_parts.join(" · ");
 
     Some(ResolvedActivity {
         process_name,
@@ -298,13 +311,26 @@ fn build_smart_discord_text(
     media_hidden: bool,
     status_text: Option<&str>,
 ) -> Option<(String, Option<String>)> {
-    if let Some(media_text) = build_smart_media_text(config, media, media_hidden) {
-        if let Some(app_text) =
-            build_smart_primary_app_text(config, process_name, process_title, status_text)
-        {
-            return Some((app_text, Some(media_text)));
-        }
+    if build_smart_media_text(config, media, media_hidden).is_some()
+        && !has_reported_app_name(config, process_name, status_text)
+    {
+        return build_music_discord_text(config, media, media_hidden);
+    }
 
+    if let Some(title_text) =
+        build_smart_primary_title_text(config, process_name, process_title, status_text)
+    {
+        let media_text = build_smart_media_text(config, media, media_hidden);
+        let app_text = build_smart_rule_hit_app_text(
+            config,
+            process_name,
+            status_text,
+            media_text.is_none(),
+        );
+        return Some(build_smart_text_layout(title_text, media_text, app_text));
+    }
+
+    if build_smart_media_text(config, media, media_hidden).is_some() {
         return build_music_discord_text(config, media, media_hidden);
     }
 
@@ -330,7 +356,7 @@ fn build_custom_base_discord_text(
         .or_else(|| build_app_discord_text(config, process_name, process_title, status_text))
 }
 
-fn build_smart_primary_app_text(
+fn build_smart_primary_title_text(
     config: &ClientConfig,
     process_name: &str,
     process_title: Option<&str>,
@@ -340,13 +366,33 @@ fn build_smart_primary_app_text(
         return Some(status_text);
     }
 
+    if let Some(process_title) = process_title.and_then(non_empty) {
+        return Some(process_title);
+    }
+
     if config.report_foreground_app {
-        if let Some(process_name) = non_empty(process_name) {
-            return Some(process_name);
+        return non_empty(process_name);
+    }
+
+    None
+}
+
+fn build_smart_rule_hit_app_text(
+    config: &ClientConfig,
+    process_name: &str,
+    status_text: Option<&str>,
+    no_media_visible: bool,
+) -> Option<String> {
+    if !config.discord_smart_show_app_name {
+        if !no_media_visible
+            || !config.app_message_rules_show_process_name
+            || status_text.and_then(non_empty).is_none()
+        {
+            return None;
         }
     }
 
-    process_title.and_then(non_empty)
+    non_empty(process_name)
 }
 
 fn build_smart_media_text(
@@ -359,6 +405,20 @@ fn build_smart_media_text(
     }
 
     non_empty(media.summary().as_str())
+}
+
+fn has_reported_app_name(
+    config: &ClientConfig,
+    process_name: &str,
+    status_text: Option<&str>,
+) -> bool {
+    if non_empty(process_name).is_none() {
+        return false;
+    }
+
+    config.report_foreground_app
+        || config.discord_smart_show_app_name
+        || status_text.and_then(non_empty).is_some()
 }
 
 fn build_mixed_music_discord_text(
@@ -399,7 +459,7 @@ fn build_music_discord_text(
     }
 
     let details = first_non_empty(&[media.title.as_str(), media.summary().as_str()])?;
-    let state = join_non_empty(&[media.artist.as_str(), media.album.as_str()]);
+    let state = non_empty(media.artist.as_str());
     Some((details, state))
 }
 
@@ -414,7 +474,12 @@ fn build_app_discord_text(
         if details.is_empty() {
             return None;
         }
-        return Some((details, None));
+        let state = if config.app_message_rules_show_process_name {
+            non_empty(process_name)
+        } else {
+            None
+        };
+        return Some((details, state));
     }
 
     if let Some(process_title) = process_title {
@@ -665,5 +730,268 @@ fn join_non_empty(values: &[&str]) -> Option<String> {
         None
     } else {
         Some(parts.join(" · "))
+    }
+}
+
+fn build_smart_text_layout(
+    title_text: String,
+    media_text: Option<String>,
+    app_text: Option<String>,
+) -> (String, Option<String>) {
+    match (media_text, app_text) {
+        (Some(media_text), Some(app_text)) => (format!("{title_text} | {app_text}"), Some(media_text)),
+        (Some(media_text), None) => (title_text, Some(media_text)),
+        (None, Some(app_text)) => (title_text, Some(app_text)),
+        (None, None) => (title_text, None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        models::DiscordReportMode,
+        platform::{ForegroundSnapshot, MediaInfo},
+    };
+
+    fn base_config() -> ClientConfig {
+        ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            ..ClientConfig::default()
+        }
+    }
+
+    fn sample_media() -> MediaInfo {
+        MediaInfo {
+            title: "Track Name".into(),
+            artist: "Artist Name".into(),
+            album: "Album Name".into(),
+            is_playing: true,
+            ..MediaInfo::default()
+        }
+    }
+
+    #[test]
+    fn music_mode_uses_title_then_artist() {
+        let config = base_config();
+        let media = sample_media();
+
+        let resolved = build_music_discord_text(&config, &media, false);
+
+        assert_eq!(
+            resolved,
+            Some(("Track Name".to_string(), Some("Artist Name".to_string())))
+        );
+    }
+
+    #[test]
+    fn music_mode_drops_state_when_artist_missing() {
+        let config = base_config();
+        let mut media = sample_media();
+        media.artist.clear();
+
+        let resolved = build_music_discord_text(&config, &media, false);
+
+        assert_eq!(resolved, Some(("Track Name".to_string(), None)));
+    }
+
+    #[test]
+    fn app_mode_shows_process_name_on_state_when_rule_hits() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::App,
+            app_message_rules_show_process_name: true,
+            ..ClientConfig::default()
+        };
+
+        let resolved = build_discord_text(
+            &config,
+            "Spotify.exe",
+            None,
+            &MediaInfo::default(),
+            false,
+            Some("正在 声破天 听歌中"),
+        )
+        .expect("activity");
+
+        assert_eq!(resolved.0, "正在 声破天 听歌中".to_string());
+        assert_eq!(resolved.1, Some("Spotify.exe".to_string()));
+    }
+
+    #[test]
+    fn smart_mode_uses_title_then_visible_media_and_keeps_app_in_signature() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            ..ClientConfig::default()
+        };
+        let snapshot = ForegroundSnapshot {
+            process_name: "Code.exe".into(),
+            process_title: "repo".into(),
+        };
+        let media = sample_media();
+
+        let resolved = resolve_activity(&config, &snapshot, &media).expect("activity");
+
+        assert_eq!(resolved.discord_details, "repo");
+        assert_eq!(
+            resolved.discord_state,
+            Some("Track Name / Artist Name / Album Name".to_string())
+        );
+        assert_eq!(
+            resolved.summary,
+            "repo · Track Name / Artist Name / Album Name".to_string()
+        );
+        assert_eq!(
+            resolved.signature,
+            "repo · Track Name / Artist Name / Album Name · Code.exe".to_string()
+        );
+    }
+
+    #[test]
+    fn normalize_client_config_migrates_legacy_artwork_toggle() {
+        let mut config = ClientConfig {
+            legacy_discord_use_media_artwork: true,
+            ..ClientConfig::default()
+        };
+
+        normalize_client_config(&mut config);
+
+        assert!(config.discord_use_app_artwork);
+        assert!(config.discord_use_music_artwork);
+        assert!(!config.legacy_discord_use_media_artwork);
+    }
+
+    #[test]
+    fn smart_mode_appends_app_name_to_last_line_only_on_rule_hit() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            discord_smart_show_app_name: true,
+            ..ClientConfig::default()
+        };
+        let snapshot = ForegroundSnapshot {
+            process_name: "Code.exe".into(),
+            process_title: "repo".into(),
+        };
+        let media = sample_media();
+
+        let resolved = build_discord_text(
+            &config,
+            snapshot.process_name.as_str(),
+            None,
+            &media,
+            false,
+            Some("Coding"),
+        )
+        .expect("activity");
+
+        assert_eq!(resolved.0, "Coding | Code.exe".to_string());
+        assert_eq!(
+            resolved.1,
+            Some("Track Name / Artist Name / Album Name".to_string())
+        );
+    }
+
+    #[test]
+    fn smart_mode_keeps_last_line_empty_without_music_or_rule_app_name() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            ..ClientConfig::default()
+        };
+        let snapshot = ForegroundSnapshot {
+            process_name: "Code.exe".into(),
+            process_title: "repo".into(),
+        };
+        let media = MediaInfo::default();
+
+        let resolved = resolve_activity(&config, &snapshot, &media).expect("activity");
+
+        assert_eq!(resolved.discord_details, "repo");
+        assert_eq!(resolved.discord_state, None);
+    }
+
+    #[test]
+    fn smart_mode_falls_back_to_music_only_when_app_name_is_not_reported() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            report_foreground_app: false,
+            ..ClientConfig::default()
+        };
+        let snapshot = ForegroundSnapshot {
+            process_name: "Code.exe".into(),
+            process_title: "repo".into(),
+        };
+        let media = sample_media();
+
+        let resolved = resolve_activity(&config, &snapshot, &media).expect("activity");
+
+        assert_eq!(resolved.discord_details, "Track Name");
+        assert_eq!(resolved.discord_state, Some("Artist Name".to_string()));
+    }
+
+    #[test]
+    fn smart_mode_can_show_rule_hit_app_name_even_when_global_app_reporting_is_off() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            report_foreground_app: false,
+            discord_smart_show_app_name: true,
+            ..ClientConfig::default()
+        };
+        let media = sample_media();
+
+        let resolved = build_discord_text(
+            &config,
+            "Code.exe",
+            None,
+            &media,
+            false,
+            Some("Coding"),
+        )
+        .expect("activity");
+
+        assert_eq!(resolved.0, "Coding | Code.exe".to_string());
+        assert_eq!(
+            resolved.1,
+            Some("Track Name / Artist Name / Album Name".to_string())
+        );
+    }
+
+    #[test]
+    fn smart_mode_can_show_app_name_without_music() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            discord_smart_show_app_name: true,
+            ..ClientConfig::default()
+        };
+        let snapshot = ForegroundSnapshot {
+            process_name: "Code.exe".into(),
+            process_title: "repo".into(),
+        };
+        let media = MediaInfo::default();
+
+        let resolved = resolve_activity(&config, &snapshot, &media).expect("activity");
+
+        assert_eq!(resolved.discord_details, "repo");
+        assert_eq!(resolved.discord_state, Some("Code.exe".to_string()));
+    }
+
+    #[test]
+    fn smart_mode_uses_rule_hit_process_name_on_last_line_without_media() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            app_message_rules_show_process_name: true,
+            ..ClientConfig::default()
+        };
+
+        let resolved = build_discord_text(
+            &config,
+            "Code.exe",
+            None,
+            &MediaInfo::default(),
+            false,
+            Some("Coding"),
+        )
+        .expect("activity");
+
+        assert_eq!(resolved.0, "Coding".to_string());
+        assert_eq!(resolved.1, Some("Code.exe".to_string()));
     }
 }

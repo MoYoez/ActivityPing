@@ -275,7 +275,7 @@ fn run_discord_presence_loop(
 
 fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresencePayload>, String> {
     let snapshot = get_foreground_snapshot_for_reporting(
-        config.report_foreground_app,
+        should_capture_process_name(config),
         config.report_window_title,
     )?;
 
@@ -284,7 +284,7 @@ fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresenc
     } else {
         MediaInfo::default()
     };
-    let foreground_app_icon = if config.discord_use_media_artwork {
+    let foreground_app_icon = if config.discord_use_app_artwork {
         get_foreground_app_icon().unwrap_or(None)
     } else {
         None
@@ -326,6 +326,17 @@ fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresenc
     }))
 }
 
+fn should_capture_process_name(config: &ClientConfig) -> bool {
+    config.report_foreground_app
+        || config.discord_smart_show_app_name
+        || config.app_message_rules_show_process_name
+        || !config.app_message_rules.is_empty()
+        || !config.app_name_only_list.is_empty()
+        || matches!(config.app_filter_mode, crate::models::AppFilterMode::Whitelist)
+        || !config.app_blacklist.is_empty()
+        || !config.app_whitelist.is_empty()
+}
+
 fn apply_discord_presence(
     client_slot: &mut Option<DiscordIpcClient>,
     config: &ClientConfig,
@@ -345,7 +356,7 @@ fn apply_discord_presence(
         let mut app_icon_url = None;
         let mut app_icon_text = None;
         let mut app_icon_error = None;
-        if config.discord_use_media_artwork {
+        if config.discord_use_app_artwork || config.discord_use_music_artwork {
             if let (Some(artwork), Some(artwork_publisher)) =
                 (payload.artwork.as_ref(), artwork_publisher)
             {
@@ -534,7 +545,10 @@ fn build_presence_artwork(
     config: &ClientConfig,
     media: &MediaInfo,
 ) -> Option<DiscordPresenceArtwork> {
-    if !config.discord_use_media_artwork || !media.is_active() {
+    if !config.discord_use_music_artwork
+        || !media.is_active()
+        || config.discord_report_mode == DiscordReportMode::App
+    {
         return None;
     }
 
@@ -547,7 +561,11 @@ fn build_presence_artwork(
     std::hash::Hash::hash(&artwork.bytes, &mut hasher);
     std::hash::Hash::hash(&artwork.content_type, &mut hasher);
     let cache_key = format!("{:x}", std::hash::Hasher::finish(&hasher));
-    let hover_text = media.summary();
+    let hover_text = if media.album.trim().is_empty() {
+        media.summary()
+    } else {
+        media.album.trim().to_string()
+    };
 
     Some(DiscordPresenceArtwork {
         bytes: artwork.bytes.clone(),
@@ -563,17 +581,49 @@ fn build_presence_icon(
     foreground_app_icon: Option<&MediaArtwork>,
     media: &MediaInfo,
 ) -> Option<DiscordPresenceIcon> {
-    if !config.discord_use_media_artwork {
+    if !config.discord_use_app_artwork && !config.discord_use_music_artwork {
         return None;
     }
 
-    if matches!(config.discord_report_mode, DiscordReportMode::Mixed) && media.is_active() {
-        return build_playback_source_icon(media)
-            .or_else(|| build_foreground_app_icon(process_name, foreground_app_icon));
+    if config.discord_report_mode == DiscordReportMode::App {
+        if config.discord_use_app_artwork {
+            return build_foreground_app_icon(process_name, foreground_app_icon);
+        }
+        return None;
     }
 
-    build_foreground_app_icon(process_name, foreground_app_icon)
-        .or_else(|| build_playback_source_icon(media))
+    if media.is_active()
+        && matches!(
+            config.discord_report_mode,
+            DiscordReportMode::Music | DiscordReportMode::Mixed
+        )
+    {
+        if config.discord_use_music_artwork {
+            return build_playback_source_icon(media).or_else(|| {
+                if config.discord_use_app_artwork {
+                    build_foreground_app_icon(process_name, foreground_app_icon)
+                } else {
+                    None
+                }
+            });
+        }
+    }
+
+    if config.discord_use_app_artwork {
+        return build_foreground_app_icon(process_name, foreground_app_icon).or_else(|| {
+            if config.discord_use_music_artwork {
+                build_playback_source_icon(media)
+            } else {
+                None
+            }
+        });
+    }
+
+    if config.discord_use_music_artwork {
+        return build_playback_source_icon(media);
+    }
+
+    None
 }
 
 fn build_foreground_app_icon(
@@ -629,6 +679,132 @@ fn build_playback_source_icon(
         hover_text,
         cache_key: format!("discord-source-icon-{cache_key}"),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn artwork_config() -> ClientConfig {
+        ClientConfig {
+            discord_use_app_artwork: true,
+            discord_use_music_artwork: true,
+            ..ClientConfig::default()
+        }
+    }
+
+    fn sample_media() -> MediaInfo {
+        MediaInfo {
+            title: "Track Name".into(),
+            artist: "Artist Name".into(),
+            album: "Album Name".into(),
+            is_playing: true,
+            artwork: Some(MediaArtwork {
+                bytes: vec![1, 2, 3],
+                content_type: "image/png".into(),
+            }),
+            ..MediaInfo::default()
+        }
+    }
+
+    #[test]
+    fn presence_artwork_prefers_album_for_hover_text() {
+        let config = artwork_config();
+        let media = sample_media();
+
+        let artwork = build_presence_artwork(&config, &media).expect("artwork");
+
+        assert_eq!(artwork.hover_text, "Album Name");
+    }
+
+    #[test]
+    fn presence_artwork_falls_back_when_album_missing() {
+        let config = artwork_config();
+        let mut media = sample_media();
+        media.album.clear();
+
+        let artwork = build_presence_artwork(&config, &media).expect("artwork");
+
+        assert_eq!(artwork.hover_text, "Track Name / Artist Name");
+    }
+
+    #[test]
+    fn app_mode_skips_music_artwork_even_when_media_is_active() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::App,
+            discord_use_music_artwork: true,
+            ..artwork_config()
+        };
+        let media = sample_media();
+
+        let artwork = build_presence_artwork(&config, &media);
+
+        assert!(artwork.is_none());
+    }
+
+    #[test]
+    fn mixed_mode_prefers_source_icon_when_music_artwork_is_enabled() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            discord_use_music_artwork: true,
+            discord_use_app_artwork: true,
+            ..ClientConfig::default()
+        };
+        let foreground_icon = MediaArtwork {
+            bytes: vec![9, 9, 9],
+            content_type: "image/png".into(),
+        };
+        let mut media = sample_media();
+        media.source_app_id = "spotify.exe".into();
+        media.source_icon = Some(MediaArtwork {
+            bytes: vec![7, 7, 7],
+            content_type: "image/png".into(),
+        });
+
+        let icon = build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media)
+            .expect("icon");
+
+        assert_eq!(icon.hover_text, "Spotify");
+    }
+
+    #[test]
+    fn app_artwork_becomes_main_icon_when_music_is_unavailable() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            discord_use_app_artwork: true,
+            ..ClientConfig::default()
+        };
+        let foreground_icon = MediaArtwork {
+            bytes: vec![9, 9, 9],
+            content_type: "image/png".into(),
+        };
+        let media = MediaInfo::default();
+
+        let icon = build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media)
+            .expect("icon");
+
+        assert_eq!(icon.hover_text, "Code");
+    }
+
+    #[test]
+    fn app_mode_does_not_fall_back_to_music_source_icon() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::App,
+            discord_use_app_artwork: false,
+            discord_use_music_artwork: true,
+            ..ClientConfig::default()
+        };
+        let mut media = sample_media();
+        media.source_app_id = "spotify.exe".into();
+        media.source_icon = Some(MediaArtwork {
+            bytes: vec![7, 7, 7],
+            content_type: "image/png".into(),
+        });
+
+        let icon = build_presence_icon(&config, "code.exe", None, &media);
+
+        assert!(icon.is_none());
+    }
 }
 
 fn fallback_app_name(source: &str) -> String {
@@ -724,7 +900,7 @@ fn validate_discord_presence_config(
     if config.discord_application_id.trim().is_empty() {
         return Err(discord_config_app_id_missing(locale));
     }
-    if config.discord_use_media_artwork
+    if (config.discord_use_app_artwork || config.discord_use_music_artwork)
         && config.discord_artwork_worker_upload_url.trim().is_empty()
     {
         return Err("Discord artwork uploader service URL is required.".into());

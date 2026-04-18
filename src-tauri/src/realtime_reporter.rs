@@ -13,7 +13,8 @@ use serde_json::Value;
 use crate::{
     backend_locale::BackendLocale,
     models::{
-        ApiResult, ClientConfig, RealtimeReporterSnapshot, ReporterActivity, ReporterLogEntry,
+        ApiResult, AppFilterMode, ClientConfig, RealtimeReporterSnapshot, ReporterActivity,
+        ReporterLogEntry,
     },
     platform::{get_foreground_snapshot_for_reporting, get_now_playing, MediaInfo},
     rules::{normalize_client_config, resolve_activity},
@@ -264,7 +265,7 @@ fn run_reporter_loop(
         let mut iteration_had_error = false;
 
         let foreground = get_foreground_snapshot_for_reporting(
-            config.report_foreground_app,
+            should_capture_process_name(&config),
             config.report_window_title,
         );
 
@@ -402,6 +403,17 @@ fn run_reporter_loop(
     }
 
     mark_stopped(&state, None, run_id);
+}
+
+fn should_capture_process_name(config: &ClientConfig) -> bool {
+    config.report_foreground_app
+        || config.discord_smart_show_app_name
+        || config.app_message_rules_show_process_name
+        || !config.app_message_rules.is_empty()
+        || !config.app_name_only_list.is_empty()
+        || matches!(config.app_filter_mode, AppFilterMode::Whitelist)
+        || !config.app_blacklist.is_empty()
+        || !config.app_whitelist.is_empty()
 }
 
 pub fn config_is_ready(_config: &ClientConfig) -> bool {

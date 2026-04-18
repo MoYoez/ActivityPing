@@ -35,7 +35,9 @@ export interface ClientConfig {
   discordReportMode: DiscordReportMode;
   discordActivityType: DiscordActivityType;
   discordSmartEnableMusicCountdown: boolean;
-  discordUseMediaArtwork: boolean;
+  discordSmartShowAppName: boolean;
+  discordUseAppArtwork: boolean;
+  discordUseMusicArtwork: boolean;
   discordArtworkWorkerUploadUrl: string;
   discordArtworkWorkerToken: string;
   discordDetailsFormat: string;

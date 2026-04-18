@@ -96,10 +96,12 @@ export function normalizeClientConfig(config: ClientConfig): ClientConfig {
   const legacyConfig = config as ClientConfig & {
     reporterEnabled?: unknown;
     discordEnabled?: unknown;
+    discordUseMediaArtwork?: unknown;
   };
   const runtimeAutostartEnabled = Boolean(
     config.runtimeAutostartEnabled || legacyConfig.reporterEnabled || legacyConfig.discordEnabled,
   );
+  const legacyArtworkEnabled = Boolean(legacyConfig.discordUseMediaArtwork);
   return {
     pollIntervalMs: Math.max(1000, Number(config.pollIntervalMs) || 1000),
     heartbeatIntervalMs: Math.max(0, Number(config.heartbeatIntervalMs) || 0),
@@ -112,7 +114,9 @@ export function normalizeClientConfig(config: ClientConfig): ClientConfig {
     discordReportMode: normalizeDiscordReportMode(config.discordReportMode),
     discordActivityType: normalizeDiscordActivityType(config.discordActivityType),
     discordSmartEnableMusicCountdown: config.discordSmartEnableMusicCountdown !== false,
-    discordUseMediaArtwork: Boolean(config.discordUseMediaArtwork),
+    discordSmartShowAppName: Boolean(config.discordSmartShowAppName),
+    discordUseAppArtwork: Boolean(config.discordUseAppArtwork || legacyArtworkEnabled),
+    discordUseMusicArtwork: Boolean(config.discordUseMusicArtwork || legacyArtworkEnabled),
     discordArtworkWorkerUploadUrl: String(config.discordArtworkWorkerUploadUrl ?? "").trim(),
     discordArtworkWorkerToken: String(config.discordArtworkWorkerToken ?? "").trim(),
     discordDetailsFormat: discordDetailsFormat || "{activity}",
@@ -122,7 +126,7 @@ export function normalizeClientConfig(config: ClientConfig): ClientConfig {
     appMessageRules: (Array.isArray(config.appMessageRules) ? config.appMessageRules : [])
       .map((rule) => normalizeRuleGroup(rule))
       .filter((rule): rule is AppMessageRuleGroup => rule !== null),
-    appMessageRulesShowProcessName: config.appMessageRulesShowProcessName !== false,
+    appMessageRulesShowProcessName: Boolean(config.appMessageRulesShowProcessName),
     appBlacklist: normalizeStringList(Array.isArray(config.appBlacklist) ? config.appBlacklist : [], false),
     appWhitelist: normalizeStringList(Array.isArray(config.appWhitelist) ? config.appWhitelist : [], false),
     appNameOnlyList: normalizeStringList(Array.isArray(config.appNameOnlyList) ? config.appNameOnlyList : [], false),
@@ -220,7 +224,7 @@ export function parseRulesJson(raw: string): ParsedRulesPayload {
       appMessageRulesShowProcessName:
         typeof payload.appMessageRulesShowProcessName === "boolean"
           ? payload.appMessageRulesShowProcessName
-          : true,
+          : false,
       appFilterMode: String(payload.appFilterMode ?? "").trim().toLowerCase() === "whitelist" ? "whitelist" : "blacklist",
       appBlacklist: normalizeStringList(
         Array.isArray(payload.appBlacklist) ? payload.appBlacklist.map((item) => String(item ?? "")) : [],

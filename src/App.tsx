@@ -57,7 +57,30 @@ const SUBRULE_CARD_CLASS = "card border border-base-300 bg-base-100 shadow-sm";
 const MAX_RUNTIME_LOGS = 20;
 const RULE_GROUP_PAGE_SIZE = 6;
 const TITLE_RULE_PAGE_SIZE = 3;
-const DISCORD_TEMPLATE_TOKENS = ["{activity}", "{context}", "{app}", "{title}", "{rule}", "{media}", "{song}", "{artist}", "{album}", "{source}"];
+const DISCORD_TEMPLATE_TOKENS = [
+  "{activity}",
+  "{context}",
+  "{app}",
+  "{title}",
+  "{rule}",
+  "{media}",
+  "{song}",
+  "{artist}",
+  "{album}",
+  "{source}",
+] as const;
+const DISCORD_TEMPLATE_TOKEN_HINTS: Record<(typeof DISCORD_TEMPLATE_TOKENS)[number], string> = {
+  "{activity}": "The main activity text after the current mode and matching rules are applied.",
+  "{context}": "The secondary line for the current activity, usually the app name or artist.",
+  "{app}": "The captured app or process name.",
+  "{title}": "The current window title.",
+  "{rule}": "The text produced by the matched rule, when a rule hit exists.",
+  "{media}": "A combined media summary, such as song, artist, and album when media is active.",
+  "{song}": "The current media title or song name.",
+  "{artist}": "The current media artist.",
+  "{album}": "The current media album.",
+  "{source}": "The active media source app id when source reporting is enabled.",
+};
 const DISCORD_REPORT_MODE_OPTIONS: Array<{
   mode: DiscordReportMode;
   title: string;
@@ -68,16 +91,16 @@ const DISCORD_REPORT_MODE_OPTIONS: Array<{
   {
     mode: "mixed",
     title: "Smart",
-    description: "When app and media are both active, keep the current app on the first line and the song on the second line.",
-    details: "Current app",
-    state: "Song / media summary",
+    description: "Keep the current title on the first line, the app name on the second line, and reserve artwork and timer space for active media.",
+    details: "Window title or rule text",
+    state: "App name",
   },
   {
     mode: "music",
     title: "Music",
     description: "Always format the activity around now-playing metadata.",
     details: "Song / media title",
-    state: "Artist + album",
+    state: "Artist",
   },
   {
     mode: "app",
@@ -776,6 +799,9 @@ function App() {
   function patchRuleAt(index: number, updater: (rule: AppMessageRuleGroup) => AppMessageRuleGroup) {
     setConfig((current) => {
       const next = [...current.appMessageRules];
+      if (!next[index]) {
+        return current;
+      }
       next[index] = updater(next[index]);
       return { ...current, appMessageRules: next };
     });
@@ -784,6 +810,9 @@ function App() {
   function patchTitleRuleAt(ruleIndex: number, titleRuleIndex: number, updater: (rule: AppMessageTitleRule) => AppMessageTitleRule) {
     patchRuleAt(ruleIndex, (rule) => {
       const next = [...rule.titleRules];
+      if (!next[titleRuleIndex]) {
+        return rule;
+      }
       next[titleRuleIndex] = updater(next[titleRuleIndex]);
       return { ...rule, titleRules: next };
     });
@@ -899,7 +928,7 @@ function App() {
           <label className={TOGGLE_TILE_CLASS}>
             <div>
               <strong>Show process name on rule hit</strong>
-              <span>Append the executable name after a matching rule text.</span>
+              <span>Append the executable name after a matching rule text. In Smart mode without media, the process name moves to the last line.</span>
             </div>
             <input className="toggle toggle-primary" type="checkbox" checked={config.appMessageRulesShowProcessName} onChange={(e) => update("appMessageRulesShowProcessName", e.currentTarget.checked)} />
           </label>
@@ -1102,7 +1131,15 @@ function App() {
                   </label>
                   <label className={FIELD_SPAN_CLASS}>
                     <span>Default text</span>
-                    <textarea className={TEXTAREA_CLASS} value={activeRule.defaultText} onChange={(e) => patchRuleAt(activeRuleIndex, (rule) => ({ ...rule, defaultText: e.currentTarget.value }))} placeholder="Coding" />
+                    <textarea
+                      className={TEXTAREA_CLASS}
+                      value={activeRule.defaultText}
+                      onChange={(e) => {
+                        const value = e.currentTarget.value;
+                        patchRuleAt(activeRuleIndex, (rule) => ({ ...rule, defaultText: value }));
+                      }}
+                      placeholder="Coding"
+                    />
                   </label>
                 </div>
 
@@ -1178,18 +1215,41 @@ function App() {
                               <div className="field-grid compact-fields">
                                 <label className={FIELD_CLASS}>
                                   <span>Mode</span>
-                                  <select className={SELECT_CLASS} value={titleRule.mode} onChange={(e) => patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({ ...rule, mode: e.currentTarget.value === "regex" ? "regex" : "plain" }))}>
+                                  <select
+                                    className={SELECT_CLASS}
+                                    value={titleRule.mode}
+                                    onChange={(e) => {
+                                      const mode = e.currentTarget.value === "regex" ? "regex" : "plain";
+                                      patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({ ...rule, mode }));
+                                    }}
+                                  >
                                     <option value="plain">Plain contains</option>
                                     <option value="regex">Regex</option>
                                   </select>
                                 </label>
                                 <label className={FIELD_SPAN_CLASS}>
                                   <span>Pattern</span>
-                                  <textarea className={TEXTAREA_CLASS} value={titleRule.pattern} onChange={(e) => patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({ ...rule, pattern: e.currentTarget.value }))} placeholder={titleRule.mode === "regex" ? "\\.tsx$" : "Visual Studio Code"} />
+                                  <textarea
+                                    className={TEXTAREA_CLASS}
+                                    value={titleRule.pattern}
+                                    onChange={(e) => {
+                                      const value = e.currentTarget.value;
+                                      patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({ ...rule, pattern: value }));
+                                    }}
+                                    placeholder={titleRule.mode === "regex" ? "\\.tsx$" : "Visual Studio Code"}
+                                  />
                                 </label>
                                 <label className={FIELD_SPAN_CLASS}>
                                   <span>Text</span>
-                                  <textarea className={TEXTAREA_CLASS} value={titleRule.text} onChange={(e) => patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({ ...rule, text: e.currentTarget.value }))} placeholder="Writing frontend: {title}" />
+                                  <textarea
+                                    className={TEXTAREA_CLASS}
+                                    value={titleRule.text}
+                                    onChange={(e) => {
+                                      const value = e.currentTarget.value;
+                                      patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({ ...rule, text: value }));
+                                    }}
+                                    placeholder="Writing frontend: {title}"
+                                  />
                                 </label>
                               </div>
                             </article>
@@ -1506,7 +1566,14 @@ function App() {
             </div>
             <div className="template-token-list">
               {DISCORD_TEMPLATE_TOKENS.map((token) => (
-                <button key={token} className="btn btn-outline btn-xs rounded-md normal-case" type="button" onClick={() => insertDiscordToken(token)}>
+                <button
+                  key={token}
+                  className="btn btn-outline btn-xs rounded-md normal-case"
+                  type="button"
+                  title={DISCORD_TEMPLATE_TOKEN_HINTS[token]}
+                  aria-label={`${token}: ${DISCORD_TEMPLATE_TOKEN_HINTS[token]}`}
+                  onClick={() => insertDiscordToken(token)}
+                >
                   {token}
                 </button>
               ))}
@@ -1518,7 +1585,7 @@ function App() {
             <label className={TOGGLE_TILE_CLASS}>
               <div>
                 <strong>Enable music countdown in Smart mode</strong>
-                <span>Keep Discord's song timer in sync when Smart mode is showing active media on the second line.</span>
+                <span>Keep Discord's song timer in sync while Smart mode is tracking active media.</span>
               </div>
               <input
                 className="toggle toggle-primary"
@@ -1528,20 +1595,41 @@ function App() {
               />
             </label>
           ) : null}
+          {config.discordReportMode === "mixed" ? (
+            <label className={TOGGLE_TILE_CLASS}>
+              <div>
+                <strong>Show app name in Smart mode</strong>
+                <span>Show the current app name in Smart mode. With music it becomes `title | app` on the first line, and without music it shows only the app name on the last line.</span>
+              </div>
+              <input
+                className="toggle toggle-primary"
+                type="checkbox"
+                checked={config.discordSmartShowAppName}
+                onChange={(e) => update("discordSmartShowAppName", e.currentTarget.checked)}
+              />
+            </label>
+          ) : null}
           <label className={TOGGLE_TILE_CLASS}>
             <div>
-              <strong>Use Discord artwork and app icons</strong>
-              <span>Upload media cover art when available and attach the current foreground app icon. If cover art is missing, the app icon becomes the main Rich Presence image.</span>
+              <strong>Use app artwork</strong>
+              <span>Upload the current foreground app icon for Rich Presence. When no music artwork is active, the app icon becomes the main image.</span>
             </div>
-            <input className="toggle toggle-primary" type="checkbox" checked={config.discordUseMediaArtwork} onChange={(e) => update("discordUseMediaArtwork", e.currentTarget.checked)} />
+            <input className="toggle toggle-primary" type="checkbox" checked={config.discordUseAppArtwork} onChange={(e) => update("discordUseAppArtwork", e.currentTarget.checked)} />
+          </label>
+          <label className={TOGGLE_TILE_CLASS}>
+            <div>
+              <strong>Use music artwork</strong>
+              <span>Upload media cover art when available and keep the playback source icon attached while music is active.</span>
+            </div>
+            <input className="toggle toggle-primary" type="checkbox" checked={config.discordUseMusicArtwork} onChange={(e) => update("discordUseMusicArtwork", e.currentTarget.checked)} />
           </label>
         </div>
-        {config.discordUseMediaArtwork ? (
+        {config.discordUseAppArtwork || config.discordUseMusicArtwork ? (
           <div className="discord-custom-panel rounded-box border border-base-300 bg-base-200/45 p-4 space-y-4">
             <div className="list-editor-summary">
               <div className="list-editor-copy">
                 <strong className="block font-semibold">Artwork publishing</strong>
-                <p>Media cover art and current app icons are converted to 128x128 JPEG and uploaded through your uploader service, which returns signed public image URLs for Discord with a 3600 second lifetime.</p>
+                <p>Selected app icons and media cover art are converted to 128x128 JPEG and uploaded through your uploader service, which returns signed public image URLs for Discord with a 3600 second lifetime.</p>
               </div>
               <span className="badge badge-soft">Uploader service</span>
             </div>

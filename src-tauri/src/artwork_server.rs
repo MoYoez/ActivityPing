@@ -131,7 +131,7 @@ fn normalize_artwork(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
 pub fn prepare_artwork_publisher(
     config: &ClientConfig,
 ) -> Result<Option<ArtworkPublisher>, String> {
-    if !config.discord_use_media_artwork {
+    if !config.discord_use_app_artwork && !config.discord_use_music_artwork {
         return Ok(None);
     }
 

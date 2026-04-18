@@ -45,7 +45,15 @@ pub fn default_discord_smart_enable_music_countdown() -> bool {
     true
 }
 
-pub fn default_discord_use_media_artwork() -> bool {
+pub fn default_discord_smart_show_app_name() -> bool {
+    false
+}
+
+pub fn default_discord_use_app_artwork() -> bool {
+    false
+}
+
+pub fn default_discord_use_music_artwork() -> bool {
     false
 }
 
@@ -62,7 +70,7 @@ pub fn default_capture_reported_apps_enabled() -> bool {
 }
 
 pub fn default_app_message_rules_show_process_name() -> bool {
-    true
+    false
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -195,8 +203,14 @@ pub struct ClientConfig {
     pub discord_activity_type: DiscordActivityType,
     #[serde(default = "default_discord_smart_enable_music_countdown")]
     pub discord_smart_enable_music_countdown: bool,
-    #[serde(default = "default_discord_use_media_artwork")]
-    pub discord_use_media_artwork: bool,
+    #[serde(default = "default_discord_smart_show_app_name")]
+    pub discord_smart_show_app_name: bool,
+    #[serde(default, rename = "discordUseMediaArtwork", skip_serializing)]
+    pub legacy_discord_use_media_artwork: bool,
+    #[serde(default = "default_discord_use_app_artwork")]
+    pub discord_use_app_artwork: bool,
+    #[serde(default = "default_discord_use_music_artwork")]
+    pub discord_use_music_artwork: bool,
     #[serde(default = "default_discord_artwork_worker_upload_url")]
     pub discord_artwork_worker_upload_url: String,
     #[serde(default = "default_discord_artwork_worker_token")]
@@ -241,7 +255,10 @@ impl Default for ClientConfig {
             discord_report_mode: DiscordReportMode::default(),
             discord_activity_type: default_discord_activity_type(),
             discord_smart_enable_music_countdown: default_discord_smart_enable_music_countdown(),
-            discord_use_media_artwork: default_discord_use_media_artwork(),
+            discord_smart_show_app_name: default_discord_smart_show_app_name(),
+            legacy_discord_use_media_artwork: false,
+            discord_use_app_artwork: default_discord_use_app_artwork(),
+            discord_use_music_artwork: default_discord_use_music_artwork(),
             discord_artwork_worker_upload_url: default_discord_artwork_worker_upload_url(),
             discord_artwork_worker_token: default_discord_artwork_worker_token(),
             discord_details_format: default_discord_details_format(),
