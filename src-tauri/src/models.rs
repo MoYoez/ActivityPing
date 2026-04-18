@@ -1,0 +1,479 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+pub fn default_poll_interval_ms() -> u64 {
+    5_000
+}
+
+pub fn default_heartbeat_interval_ms() -> u64 {
+    60_000
+}
+
+pub fn default_report_foreground_app() -> bool {
+    true
+}
+
+pub fn default_report_window_title() -> bool {
+    true
+}
+
+pub fn default_report_media() -> bool {
+    true
+}
+
+pub fn default_report_play_source() -> bool {
+    true
+}
+
+pub fn default_discord_application_id() -> String {
+    String::new()
+}
+
+pub fn default_discord_details_format() -> String {
+    "{activity}".into()
+}
+
+pub fn default_discord_state_format() -> String {
+    "{context}".into()
+}
+
+pub fn default_discord_activity_type() -> DiscordActivityType {
+    DiscordActivityType::default()
+}
+
+pub fn default_discord_smart_enable_music_countdown() -> bool {
+    true
+}
+
+pub fn default_discord_use_media_artwork() -> bool {
+    false
+}
+
+pub fn default_discord_artwork_worker_upload_url() -> String {
+    String::new()
+}
+
+pub fn default_discord_artwork_worker_token() -> String {
+    String::new()
+}
+
+pub fn default_capture_reported_apps_enabled() -> bool {
+    true
+}
+
+pub fn default_app_message_rules_show_process_name() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum AppTitleRuleMode {
+    #[default]
+    Plain,
+    Regex,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum AppFilterMode {
+    #[default]
+    Blacklist,
+    Whitelist,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscordReportMode {
+    Music,
+    App,
+    #[default]
+    Mixed,
+    Custom,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscordActivityType {
+    #[default]
+    Playing,
+    Listening,
+    Watching,
+    Competing,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AppMessageTitleRule {
+    #[serde(default)]
+    pub mode: AppTitleRuleMode,
+    #[serde(default)]
+    pub pattern: String,
+    #[serde(default)]
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AppMessageRuleGroup {
+    #[serde(default)]
+    pub process_match: String,
+    #[serde(default)]
+    pub default_text: String,
+    #[serde(default)]
+    pub title_rules: Vec<AppMessageTitleRule>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientCapabilities {
+    pub realtime_reporter: bool,
+    pub tray: bool,
+    pub platform_self_test: bool,
+    pub discord_presence: bool,
+    pub autostart: bool,
+}
+
+#[cfg(desktop)]
+pub fn default_client_capabilities() -> ClientCapabilities {
+    ClientCapabilities {
+        realtime_reporter: true,
+        tray: true,
+        platform_self_test: true,
+        discord_presence: true,
+        autostart: true,
+    }
+}
+
+#[cfg(mobile)]
+pub fn default_client_capabilities() -> ClientCapabilities {
+    ClientCapabilities {
+        realtime_reporter: false,
+        tray: false,
+        platform_self_test: false,
+        discord_presence: false,
+        autostart: false,
+    }
+}
+
+#[cfg(not(any(desktop, mobile)))]
+pub fn default_client_capabilities() -> ClientCapabilities {
+    ClientCapabilities {
+        realtime_reporter: false,
+        tray: false,
+        platform_self_test: false,
+        discord_presence: false,
+        autostart: false,
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientConfig {
+    #[serde(default = "default_poll_interval_ms")]
+    pub poll_interval_ms: u64,
+    #[serde(default = "default_heartbeat_interval_ms")]
+    pub heartbeat_interval_ms: u64,
+    #[serde(default)]
+    pub runtime_autostart_enabled: bool,
+    #[serde(default, rename = "reporterEnabled", skip_serializing)]
+    pub legacy_reporter_enabled: bool,
+    #[serde(default = "default_report_foreground_app")]
+    pub report_foreground_app: bool,
+    #[serde(default = "default_report_window_title")]
+    pub report_window_title: bool,
+    #[serde(default = "default_report_media")]
+    pub report_media: bool,
+    #[serde(default = "default_report_play_source")]
+    pub report_play_source: bool,
+    #[serde(default, rename = "discordEnabled", skip_serializing)]
+    pub legacy_discord_enabled: bool,
+    #[serde(default = "default_discord_application_id")]
+    pub discord_application_id: String,
+    #[serde(default)]
+    pub discord_report_mode: DiscordReportMode,
+    #[serde(default = "default_discord_activity_type")]
+    pub discord_activity_type: DiscordActivityType,
+    #[serde(default = "default_discord_smart_enable_music_countdown")]
+    pub discord_smart_enable_music_countdown: bool,
+    #[serde(default = "default_discord_use_media_artwork")]
+    pub discord_use_media_artwork: bool,
+    #[serde(default = "default_discord_artwork_worker_upload_url")]
+    pub discord_artwork_worker_upload_url: String,
+    #[serde(default = "default_discord_artwork_worker_token")]
+    pub discord_artwork_worker_token: String,
+    #[serde(default = "default_discord_details_format")]
+    pub discord_details_format: String,
+    #[serde(default = "default_discord_state_format")]
+    pub discord_state_format: String,
+    #[serde(default)]
+    pub launch_on_startup: bool,
+    #[serde(default = "default_capture_reported_apps_enabled")]
+    pub capture_reported_apps_enabled: bool,
+    #[serde(default)]
+    pub app_message_rules: Vec<AppMessageRuleGroup>,
+    #[serde(default = "default_app_message_rules_show_process_name")]
+    pub app_message_rules_show_process_name: bool,
+    #[serde(default)]
+    pub app_filter_mode: AppFilterMode,
+    #[serde(default)]
+    pub app_blacklist: Vec<String>,
+    #[serde(default)]
+    pub app_whitelist: Vec<String>,
+    #[serde(default)]
+    pub app_name_only_list: Vec<String>,
+    #[serde(default)]
+    pub media_play_source_blocklist: Vec<String>,
+}
+
+impl Default for ClientConfig {
+    fn default() -> Self {
+        Self {
+            poll_interval_ms: default_poll_interval_ms(),
+            heartbeat_interval_ms: default_heartbeat_interval_ms(),
+            runtime_autostart_enabled: false,
+            legacy_reporter_enabled: false,
+            report_foreground_app: default_report_foreground_app(),
+            report_window_title: default_report_window_title(),
+            report_media: default_report_media(),
+            report_play_source: default_report_play_source(),
+            legacy_discord_enabled: false,
+            discord_application_id: default_discord_application_id(),
+            discord_report_mode: DiscordReportMode::default(),
+            discord_activity_type: default_discord_activity_type(),
+            discord_smart_enable_music_countdown: default_discord_smart_enable_music_countdown(),
+            discord_use_media_artwork: default_discord_use_media_artwork(),
+            discord_artwork_worker_upload_url: default_discord_artwork_worker_upload_url(),
+            discord_artwork_worker_token: default_discord_artwork_worker_token(),
+            discord_details_format: default_discord_details_format(),
+            discord_state_format: default_discord_state_format(),
+            launch_on_startup: false,
+            capture_reported_apps_enabled: default_capture_reported_apps_enabled(),
+            app_message_rules: Vec::new(),
+            app_message_rules_show_process_name: default_app_message_rules_show_process_name(),
+            app_filter_mode: AppFilterMode::default(),
+            app_blacklist: Vec::new(),
+            app_whitelist: Vec::new(),
+            app_name_only_list: Vec::new(),
+            media_play_source_blocklist: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AppStatePayload {
+    #[serde(default)]
+    pub config: ClientConfig,
+    #[serde(default)]
+    pub app_history: Vec<String>,
+    #[serde(default)]
+    pub play_source_history: Vec<String>,
+    #[serde(default)]
+    pub locale: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiError {
+    pub status: u16,
+    pub message: String,
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
+    pub params: Option<Value>,
+    pub details: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiResult<T> {
+    pub success: bool,
+    pub status: u16,
+    pub data: Option<T>,
+    pub error: Option<ApiError>,
+}
+
+impl<T> ApiResult<T> {
+    pub fn success(status: u16, data: T) -> Self {
+        Self {
+            success: true,
+            status,
+            data: Some(data),
+            error: None,
+        }
+    }
+
+    pub fn failure_localized<S>(
+        status: u16,
+        code: Option<S>,
+        message: impl Into<String>,
+        params: Option<Value>,
+        details: Option<Value>,
+    ) -> Self
+    where
+        S: Into<String>,
+    {
+        Self {
+            success: false,
+            status,
+            data: None,
+            error: Some(ApiError {
+                status,
+                message: message.into(),
+                code: code.map(Into::into),
+                params,
+                details,
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalizedTextEntry {
+    pub text: String,
+    #[serde(default)]
+    pub key: Option<String>,
+    #[serde(default)]
+    pub params: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ReporterActivity {
+    #[serde(default)]
+    pub process_name: String,
+    #[serde(default)]
+    pub process_title: Option<String>,
+    #[serde(default)]
+    pub media_summary: Option<String>,
+    #[serde(default)]
+    pub media_duration_ms: Option<u64>,
+    #[serde(default)]
+    pub media_position_ms: Option<u64>,
+    #[serde(default)]
+    pub play_source: Option<String>,
+    #[serde(default)]
+    pub status_text: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReporterLogEntry {
+    pub id: String,
+    pub timestamp: String,
+    pub level: String,
+    pub title: String,
+    pub detail: String,
+    #[serde(default)]
+    pub title_key: Option<String>,
+    #[serde(default)]
+    pub title_params: Option<Value>,
+    #[serde(default)]
+    pub detail_key: Option<String>,
+    #[serde(default)]
+    pub detail_params: Option<Value>,
+    pub payload: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RealtimeReporterSnapshot {
+    #[serde(default)]
+    pub running: bool,
+    #[serde(default)]
+    pub logs: Vec<ReporterLogEntry>,
+    #[serde(default)]
+    pub current_activity: Option<ReporterActivity>,
+    #[serde(default)]
+    pub last_heartbeat_at: Option<String>,
+    #[serde(default)]
+    pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordPresenceSnapshot {
+    #[serde(default)]
+    pub running: bool,
+    #[serde(default)]
+    pub connected: bool,
+    #[serde(default)]
+    pub last_sync_at: Option<String>,
+    #[serde(default)]
+    pub last_error: Option<String>,
+    #[serde(default)]
+    pub current_summary: Option<String>,
+    #[serde(default)]
+    pub debug_payload: Option<DiscordDebugPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordDebugPayload {
+    #[serde(default)]
+    pub details: String,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub summary: String,
+    #[serde(default)]
+    pub signature: String,
+    #[serde(default)]
+    pub report_mode_applied: String,
+    #[serde(default)]
+    pub activity_type: String,
+    #[serde(default)]
+    pub started_at_millis: Option<i64>,
+    #[serde(default)]
+    pub ended_at_millis: Option<i64>,
+    #[serde(default)]
+    pub media_duration_ms: Option<u64>,
+    #[serde(default)]
+    pub media_position_ms: Option<u64>,
+    #[serde(default)]
+    pub app_icon_url: Option<String>,
+    #[serde(default)]
+    pub app_icon_text: Option<String>,
+    #[serde(default)]
+    pub app_icon_error: Option<String>,
+    #[serde(default)]
+    pub artwork_url: Option<String>,
+    #[serde(default)]
+    pub artwork_hover_text: Option<String>,
+    #[serde(default)]
+    pub artwork_content_type: Option<String>,
+    #[serde(default)]
+    pub artwork_upload_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformProbeResult {
+    pub success: bool,
+    pub summary: String,
+    pub detail: String,
+    #[serde(default)]
+    pub guidance: Vec<String>,
+    #[serde(default)]
+    pub summary_key: Option<String>,
+    #[serde(default)]
+    pub summary_params: Option<Value>,
+    #[serde(default)]
+    pub detail_key: Option<String>,
+    #[serde(default)]
+    pub detail_params: Option<Value>,
+    #[serde(default)]
+    pub guidance_entries: Vec<LocalizedTextEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformSelfTestResult {
+    pub platform: String,
+    pub foreground: PlatformProbeResult,
+    pub window_title: PlatformProbeResult,
+    pub media: PlatformProbeResult,
+}
