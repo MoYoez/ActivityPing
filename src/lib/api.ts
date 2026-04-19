@@ -1,10 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import {
-  disable as disableAutostartPlugin,
-  enable as enableAutostartPlugin,
-  isEnabled as isAutostartEnabledPlugin,
-} from "@tauri-apps/plugin-autostart";
-
 import type {
   ApiResult,
   AppStatePayload,
@@ -145,15 +139,9 @@ export async function hideToTray() {
   await invoke("hide_to_tray");
 }
 
-export async function isAutostartEnabled(): Promise<boolean> {
-  return isAutostartEnabledPlugin();
-}
-
 export async function setAutostartEnabled(enabled: boolean) {
-  if (enabled) {
-    await enableAutostartPlugin();
-    return;
+  const result = await invokeApi<boolean>("set_launch_on_startup", { enabled });
+  if (!result.success) {
+    throw new Error(resolveApiError(result, "Launch with system could not be updated."));
   }
-
-  await disableAutostartPlugin();
 }

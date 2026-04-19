@@ -239,6 +239,10 @@ textarea {
   padding: 18px 20px 22px;
 }
 
+.section-motion {
+  min-width: 0;
+}
+
 .settings-flow,
 .settings-group,
 .compact-stack,
@@ -446,6 +450,7 @@ textarea {
   gap: 14px;
   min-height: 100%;
   align-content: start;
+  align-items: start;
 }
 
 .runtime-prerequisite-card {
@@ -456,6 +461,10 @@ textarea {
   display: flex;
   min-height: 0;
   flex-direction: column;
+}
+
+.runtime-main-card {
+  align-self: start;
 }
 
 .runtime-debug-card {
@@ -483,6 +492,64 @@ textarea {
   max-height: clamp(220px, calc(100vh - 290px), 520px);
   overflow: auto;
   padding-right: 4px;
+}
+
+.history-record-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.history-record-panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--color-base-300);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-base-200) 62%, transparent);
+}
+
+.history-record-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.history-record-head strong {
+  font-weight: 700;
+}
+
+.history-record-head span,
+.history-record-item small {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.history-record-list {
+  display: grid;
+  gap: 8px;
+}
+
+.history-record-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-base-100) 78%, transparent);
+}
+
+.history-record-item strong,
+.history-record-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.history-record-item span {
+  color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
 }
 
 .platform-probe-list {
@@ -518,6 +585,17 @@ textarea {
   border-left-width: 3px;
 }
 
+.log-entry-clickable {
+  cursor: pointer;
+}
+
+.log-entry-clickable:hover,
+.log-entry-clickable:focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary) 28%, transparent);
+}
+
 .log-entry-head {
   display: flex;
   justify-content: space-between;
@@ -530,8 +608,15 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-.log-entry-head span {
+.log-entry-actions {
+  display: flex;
   flex-shrink: 0;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.log-entry-actions span {
   color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
   font-size: 0.72rem;
 }
@@ -767,6 +852,7 @@ textarea {
   .compact-toggles,
   .radio-grid,
   .rules-utility-grid,
+  .history-record-grid,
   .rule-entry-grid {
     grid-template-columns: 1fr;
   }

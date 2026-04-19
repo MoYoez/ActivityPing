@@ -1,4 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 
 import "./App.css";
 import appIcon from "./assets/app-icon-base.png";
@@ -9,7 +10,6 @@ import {
   getDiscordPresenceSnapshot,
   getRealtimeReporterSnapshot,
   hideToTray,
-  isAutostartEnabled,
   loadAppState,
   requestAccessibilityPermission,
   resolveApiError,
@@ -25,6 +25,7 @@ import { exportRulesJson, normalizeClientConfig, parseRulesJson, summarizeRuleGr
 import type {
   AppMessageRuleGroup,
   AppMessageTitleRule,
+  AppHistoryEntry,
   AppStatePayload,
   ClientCapabilities,
   ClientConfig,
@@ -34,6 +35,9 @@ import type {
   DiscordReportMode,
   PlatformProbeResult,
   PlatformSelfTestResult,
+  PlaySourceHistoryEntry,
+  ReporterActivity,
+  ReporterLogEntry,
   RealtimeReporterSnapshot,
 } from "./types";
 
@@ -59,6 +63,7 @@ const RADIO_CARD_CLASS = "flex items-start gap-3 rounded-box border border-base-
 const ACTIVE_RADIO_CARD_CLASS = "flex items-start gap-3 rounded-box border border-primary bg-primary/10 p-4 text-left";
 const SUBRULE_CARD_CLASS = "card border border-base-300 bg-base-100 shadow-sm";
 const MAX_RUNTIME_LOGS = 20;
+const MAX_HISTORY_RECORDS = 3;
 const RULE_GROUP_PAGE_SIZE = 6;
 const TITLE_RULE_PAGE_SIZE = 3;
 const DISCORD_TEMPLATE_TOKENS = [
@@ -131,6 +136,20 @@ const DISCORD_ACTIVITY_TYPE_OPTIONS: Array<{
   { value: "watching", label: "Watching", helper: "Discord shows a watching-style label." },
   { value: "competing", label: "Competing", helper: "Discord shows a competing-style label." },
 ];
+const VIEW_MOTION = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+};
+const CARD_MOTION = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+};
+const LOG_MOTION = {
+  initial: { opacity: 0, x: 10 },
+  animate: { opacity: 1, x: 0 },
+};
+const MOTION_TRANSITION = { duration: 0.18, ease: "easeOut" } as const;
 
 function alertClass(tone: NoticeTone) {
   switch (tone) {
@@ -170,6 +189,14 @@ interface Notice {
   tone: NoticeTone;
   title: string;
   detail: string;
+}
+
+interface JsonViewerState {
+  eyebrow: string;
+  title: string;
+  description: string;
+  value: unknown | null;
+  emptyText: string;
 }
 
 const DEFAULT_CAPABILITIES: ClientCapabilities = {
@@ -353,17 +380,6 @@ function discordActivityTypeText(value: DiscordActivityType) {
   }
 }
 
-function mergeHistoryList(values: string[], value: string, lowercase: boolean) {
-  const trimmed = value.trim();
-  if (!trimmed) return values;
-  const nextValue = lowercase ? trimmed.toLowerCase() : trimmed;
-  const key = nextValue.toLowerCase();
-  if (values.some((item) => item.trim().toLowerCase() === key)) {
-    return values;
-  }
-  return [nextValue, ...values].slice(0, 240);
-}
-
 function appendUniqueListValue(values: string[], value: string, lowercase: boolean) {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -375,6 +391,154 @@ function appendUniqueListValue(values: string[], value: string, lowercase: boole
     return values;
   }
   return [...values, nextValue];
+}
+
+function compactOptionalText(value?: string | null) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed || null;
+}
+
+function normalizeAppHistory(values: unknown): AppHistoryEntry[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((value): AppHistoryEntry | null => {
+      if (typeof value === "string") {
+        return { processName: value.trim(), processTitle: null, statusText: null, updatedAt: null };
+      }
+      if (!value || typeof value !== "object") {
+        return null;
+      }
+      const record = value as Partial<AppHistoryEntry>;
+      return {
+        processName: String(record.processName ?? "").trim(),
+        processTitle: compactOptionalText(record.processTitle),
+        statusText: compactOptionalText(record.statusText),
+        updatedAt: compactOptionalText(record.updatedAt),
+      };
+    })
+    .filter((value): value is AppHistoryEntry => Boolean(value?.processName))
+    .slice(0, MAX_HISTORY_RECORDS);
+}
+
+function normalizePlaySourceHistory(values: unknown): PlaySourceHistoryEntry[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((value): PlaySourceHistoryEntry | null => {
+      if (typeof value === "string") {
+        return {
+          source: value.trim().toLowerCase(),
+          mediaTitle: null,
+          mediaArtist: null,
+          mediaAlbum: null,
+          mediaSummary: null,
+          updatedAt: null,
+        };
+      }
+      if (!value || typeof value !== "object") {
+        return null;
+      }
+      const record = value as Partial<PlaySourceHistoryEntry>;
+      return {
+        source: String(record.source ?? "").trim().toLowerCase(),
+        mediaTitle: compactOptionalText(record.mediaTitle),
+        mediaArtist: compactOptionalText(record.mediaArtist),
+        mediaAlbum: compactOptionalText(record.mediaAlbum),
+        mediaSummary: compactOptionalText(record.mediaSummary),
+        updatedAt: compactOptionalText(record.updatedAt),
+      };
+    })
+    .filter((value): value is PlaySourceHistoryEntry => Boolean(value?.source))
+    .slice(0, MAX_HISTORY_RECORDS);
+}
+
+function uniqueHistoryValues(values: string[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = value.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function sameOptionalValue(left?: string | null, right?: string | null) {
+  return (left?.trim() || "") === (right?.trim() || "");
+}
+
+function sameAppHistoryContent(left: AppHistoryEntry, right: AppHistoryEntry) {
+  return (
+    left.processName.trim().toLowerCase() === right.processName.trim().toLowerCase() &&
+    sameOptionalValue(left.processTitle, right.processTitle) &&
+    sameOptionalValue(left.statusText, right.statusText)
+  );
+}
+
+function samePlaySourceHistoryContent(left: PlaySourceHistoryEntry, right: PlaySourceHistoryEntry) {
+  return (
+    left.source.trim().toLowerCase() === right.source.trim().toLowerCase() &&
+    sameOptionalValue(left.mediaTitle, right.mediaTitle) &&
+    sameOptionalValue(left.mediaArtist, right.mediaArtist) &&
+    sameOptionalValue(left.mediaAlbum, right.mediaAlbum) &&
+    sameOptionalValue(left.mediaSummary, right.mediaSummary)
+  );
+}
+
+function shouldCaptureHistoryActivity(activity?: ReporterActivity | null) {
+  const processName = activity?.processName?.trim().toLowerCase() ?? "";
+  return Boolean(processName && processName !== "activityping.exe");
+}
+
+function mergeAppHistory(values: AppHistoryEntry[], activity?: ReporterActivity | null) {
+  const processName = activity?.processName?.trim() ?? "";
+  if (!processName) return values;
+  const entry: AppHistoryEntry = {
+    processName,
+    processTitle: compactOptionalText(activity?.processTitle),
+    statusText: compactOptionalText(activity?.statusText),
+    updatedAt: activity?.updatedAt ?? new Date().toISOString(),
+  };
+  const key = processName.toLowerCase();
+  if (values[0] && sameAppHistoryContent(values[0], entry)) {
+    return values;
+  }
+  return [entry, ...values.filter((item) => item.processName.trim().toLowerCase() !== key)].slice(0, MAX_HISTORY_RECORDS);
+}
+
+function mergePlaySourceHistory(values: PlaySourceHistoryEntry[], activity?: ReporterActivity | null) {
+  const source = activity?.playSource?.trim().toLowerCase() ?? "";
+  if (!source) return values;
+  const entry: PlaySourceHistoryEntry = {
+    source,
+    mediaTitle: compactOptionalText(activity?.mediaTitle),
+    mediaArtist: compactOptionalText(activity?.mediaArtist),
+    mediaAlbum: compactOptionalText(activity?.mediaAlbum),
+    mediaSummary: compactOptionalText(activity?.mediaSummary),
+    updatedAt: activity?.updatedAt ?? new Date().toISOString(),
+  };
+  if (values[0] && samePlaySourceHistoryContent(values[0], entry)) {
+    return values;
+  }
+  return [entry, ...values.filter((item) => item.source.trim().toLowerCase() !== source)].slice(0, MAX_HISTORY_RECORDS);
+}
+
+function appHistoryDisplayTitle(entry: AppHistoryEntry) {
+  return entry.statusText?.trim() || entry.processTitle?.trim() || "No title captured";
+}
+
+function playSourceHistoryDisplayTitle(entry: PlaySourceHistoryEntry) {
+  return entry.mediaTitle?.trim() || entry.mediaSummary?.trim() || "No media title captured";
+}
+
+function playSourceHistoryMeta(entry: PlaySourceHistoryEntry) {
+  return [entry.mediaArtist, entry.mediaAlbum].map((item) => item?.trim()).filter(Boolean).join(" · ");
+}
+
+function hasJsonPayload(value: unknown) {
+  return typeof value === "object" && value !== null && Object.keys(value).length > 0;
+}
+
+function sameJsonValue(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function moveItem<T>(items: T[], from: number, to: number) {
@@ -434,7 +598,8 @@ function App() {
   const [appliedRuntimeConfigSignature, setAppliedRuntimeConfigSignature] = useState<string | null>(null);
   const [ruleGroupPage, setRuleGroupPage] = useState(0);
   const [titleRulePage, setTitleRulePage] = useState(0);
-  const [discordDebugOpen, setDiscordDebugOpen] = useState(false);
+  const [jsonViewer, setJsonViewer] = useState<JsonViewerState | null>(null);
+  const runtimeAutostartAttemptedRef = useRef(false);
   const discordDetailsInputRef = useRef<HTMLInputElement | null>(null);
   const discordStateInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -627,14 +792,11 @@ function App() {
       if (!cancelled && caps.success && caps.data) setCapabilities(caps.data);
       const state = await loadAppState();
       if (cancelled) return;
-      let resolvedConfig = normalizeClientConfig(state.config);
-      try {
-        resolvedConfig = { ...resolvedConfig, launchOnStartup: await isAutostartEnabled() };
-      } catch {}
+      const resolvedConfig = normalizeClientConfig(state.config);
       const payload = {
         config: resolvedConfig,
-        appHistory: Array.isArray(state.appHistory) ? state.appHistory : [],
-        playSourceHistory: Array.isArray(state.playSourceHistory) ? state.playSourceHistory : [],
+        appHistory: normalizeAppHistory(state.appHistory),
+        playSourceHistory: normalizePlaySourceHistory(state.playSourceHistory),
         locale: "en-US",
       };
       setBaseState(payload);
@@ -642,12 +804,6 @@ function App() {
       setHydrated(true);
       await refreshReporter();
       await refreshDiscord();
-      if (!cancelled && caps.success && caps.data?.platformSelfTest) {
-        const selfTest = await runPlatformSelfTest();
-        if (!cancelled && selfTest.success && selfTest.data) {
-          setPlatformSelfTest(selfTest.data);
-        }
-      }
     })();
     return () => {
       cancelled = true;
@@ -663,6 +819,31 @@ function App() {
     }, 4000);
     return () => window.clearInterval(timer);
   }, [hydrated, reporterSnapshot.running, discordSnapshot.running]);
+
+  useEffect(() => {
+    if (
+      !hydrated ||
+      runtimeAutostartAttemptedRef.current ||
+      !baseState.config.runtimeAutostartEnabled ||
+      !baseState.config.discordApplicationId.trim() ||
+      reporterSnapshot.running ||
+      discordSnapshot.running
+    ) {
+      return;
+    }
+
+    runtimeAutostartAttemptedRef.current = true;
+    const timer = window.setTimeout(() => {
+      void runAction("startRuntime", startRuntimeSession);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [
+    hydrated,
+    baseState.config.runtimeAutostartEnabled,
+    baseState.config.discordApplicationId,
+    reporterSnapshot.running,
+    discordSnapshot.running,
+  ]);
 
   useEffect(() => {
     const runtimeActive = reporterSnapshot.running || discordSnapshot.running;
@@ -699,11 +880,11 @@ function App() {
   }, [activeRuleIndex, config.appMessageRules]);
 
   useEffect(() => {
-    if (!rulesDialogOpen && !discardDialogOpen && !discordDebugOpen) return;
+    if (!rulesDialogOpen && !discardDialogOpen && !jsonViewer) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (discordDebugOpen) {
-          setDiscordDebugOpen(false);
+        if (jsonViewer) {
+          setJsonViewer(null);
           return;
         }
         if (discardDialogOpen) {
@@ -715,21 +896,27 @@ function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [rulesDialogOpen, discardDialogOpen, discordDebugOpen]);
+  }, [rulesDialogOpen, discardDialogOpen, jsonViewer]);
 
   useEffect(() => {
     if (!hydrated || !config.captureReportedAppsEnabled) return;
-    const processName = reporterSnapshot.currentActivity?.processName?.trim() ?? "";
-    const playSource = reporterSnapshot.currentActivity?.playSource?.trim() ?? "";
-    const nextAppHistory = processName ? mergeHistoryList(baseState.appHistory, processName, false) : baseState.appHistory;
-    const nextPlaySourceHistory = playSource ? mergeHistoryList(baseState.playSourceHistory, playSource, true) : baseState.playSourceHistory;
-    if (nextAppHistory === baseState.appHistory && nextPlaySourceHistory === baseState.playSourceHistory) return;
+    const nextAppHistory = shouldCaptureHistoryActivity(reporterSnapshot.currentActivity)
+      ? mergeAppHistory(baseState.appHistory, reporterSnapshot.currentActivity)
+      : baseState.appHistory;
+    const nextPlaySourceHistory = mergePlaySourceHistory(baseState.playSourceHistory, reporterSnapshot.currentActivity);
+    if (sameJsonValue(nextAppHistory, baseState.appHistory) && sameJsonValue(nextPlaySourceHistory, baseState.playSourceHistory)) return;
     const payload = { ...baseState, appHistory: nextAppHistory, playSourceHistory: nextPlaySourceHistory };
     void saveAppState(payload).then(() => setBaseState(payload)).catch(() => {});
   }, [
     hydrated,
     config.captureReportedAppsEnabled,
     reporterSnapshot.currentActivity?.processName,
+    reporterSnapshot.currentActivity?.processTitle,
+    reporterSnapshot.currentActivity?.statusText,
+    reporterSnapshot.currentActivity?.mediaTitle,
+    reporterSnapshot.currentActivity?.mediaArtist,
+    reporterSnapshot.currentActivity?.mediaAlbum,
+    reporterSnapshot.currentActivity?.mediaSummary,
     reporterSnapshot.currentActivity?.playSource,
     baseState,
   ]);
@@ -814,17 +1001,20 @@ function App() {
       detail: "The RPC profile is saved. Start runtime when you want to report activity.",
     };
   })();
-  const appSuggestions = useMemo(() => baseState.appHistory, [baseState.appHistory]);
-  const playSourceSuggestions = useMemo(() => baseState.playSourceHistory, [baseState.playSourceHistory]);
+  const appSuggestions = useMemo(
+    () => uniqueHistoryValues(baseState.appHistory.map((entry) => entry.processName)),
+    [baseState.appHistory],
+  );
+  const playSourceSuggestions = useMemo(
+    () => uniqueHistoryValues(baseState.playSourceHistory.map((entry) => entry.source)),
+    [baseState.playSourceHistory],
+  );
   const runtimeLogs = useMemo(() => reporterSnapshot.logs.slice(0, MAX_RUNTIME_LOGS), [reporterSnapshot.logs]);
   const discordDebugPayload = useMemo<DiscordDebugPayload | null>(
     () => discordSnapshot.debugPayload ?? null,
     [discordSnapshot.debugPayload],
   );
-  const discordDebugJson = useMemo(
-    () => (discordDebugPayload ? JSON.stringify(discordDebugPayload, null, 2) : ""),
-    [discordDebugPayload],
-  );
+  const jsonViewerJson = useMemo(() => (jsonViewer?.value ? JSON.stringify(jsonViewer.value, null, 2) : ""), [jsonViewer]);
   const ruleGroupTotalPages = pageCount(config.appMessageRules.length, RULE_GROUP_PAGE_SIZE);
   const safeRuleGroupPage = clampPage(ruleGroupPage, config.appMessageRules.length, RULE_GROUP_PAGE_SIZE);
   const ruleGroupPageStart = safeRuleGroupPage * RULE_GROUP_PAGE_SIZE;
@@ -881,6 +1071,27 @@ function App() {
     } finally {
       setBusy((current) => ({ ...current, [name]: false }));
     }
+  }
+
+  function openDiscordPayloadJson() {
+    setJsonViewer({
+      eyebrow: "Debug",
+      title: "Discord payload JSON",
+      description: "Current payload snapshot from the moment this dialog opened.",
+      value: discordDebugPayload,
+      emptyText:
+        "No Discord payload has been published yet. Start runtime and wait for a captured activity to pass the current rules.",
+    });
+  }
+
+  function openLogPayloadJson(entry: ReporterLogEntry) {
+    setJsonViewer({
+      eyebrow: "Log",
+      title: "Reported record JSON",
+      description: `${entry.title} · ${formatDate(entry.timestamp)}`,
+      value: entry.payload ?? null,
+      emptyText: "This log entry does not include a reported record payload.",
+    });
   }
 
   const generalView = (
@@ -1527,10 +1738,52 @@ function App() {
           <label className={TOGGLE_TILE_CLASS}>
             <div>
               <strong>Capture reported apps</strong>
-              <span>Save app names and play sources for local rule suggestions and export.</span>
+              <span>Save the latest three app and play-source records for local suggestions and export.</span>
             </div>
             <input className="toggle toggle-primary" type="checkbox" checked={config.captureReportedAppsEnabled} onChange={(e) => update("captureReportedAppsEnabled", e.currentTarget.checked)} />
           </label>
+        </div>
+
+        <div className="history-record-grid">
+          <div className="history-record-panel">
+            <div className="history-record-head">
+              <strong>Apps</strong>
+              <span>{baseState.appHistory.length} / {MAX_HISTORY_RECORDS}</span>
+            </div>
+            {baseState.appHistory.length === 0 ? (
+              <div className="empty-state compact-empty">No app records yet.</div>
+            ) : (
+              <div className="history-record-list">
+                {baseState.appHistory.map((entry) => (
+                  <article key={`${entry.processName}-${entry.updatedAt ?? ""}`} className="history-record-item">
+                    <strong>{entry.processName}</strong>
+                    <span>{appHistoryDisplayTitle(entry)}</span>
+                    <small>{formatDate(entry.updatedAt)}</small>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="history-record-panel">
+            <div className="history-record-head">
+              <strong>Play sources</strong>
+              <span>{baseState.playSourceHistory.length} / {MAX_HISTORY_RECORDS}</span>
+            </div>
+            {baseState.playSourceHistory.length === 0 ? (
+              <div className="empty-state compact-empty">No play-source records yet.</div>
+            ) : (
+              <div className="history-record-list">
+                {baseState.playSourceHistory.map((entry) => (
+                  <article key={`${entry.source}-${entry.updatedAt ?? ""}`} className="history-record-item">
+                    <strong>{entry.source}</strong>
+                    <span>{playSourceHistoryDisplayTitle(entry)}</span>
+                    {playSourceHistoryMeta(entry) ? <span>{playSourceHistoryMeta(entry)}</span> : null}
+                    <small>{formatDate(entry.updatedAt)}</small>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="card-actions gap-2">
@@ -1861,7 +2114,7 @@ function App() {
         </section>
       ) : null}
 
-      <section className={`${PANEL_CLASS} runtime-card runtime-main-card`}>
+      <motion.section className={`${PANEL_CLASS} runtime-card runtime-main-card`} {...CARD_MOTION} transition={MOTION_TRANSITION}>
         <div className={PANEL_HEAD_CLASS}>
           <div>
             <p className="eyebrow">Monitor</p>
@@ -1908,9 +2161,9 @@ function App() {
             {busy.refreshRuntime ? "Refreshing..." : runtimeReady ? "Refresh" : "RPC required"}
           </button>
         </div>
-      </section>
+      </motion.section>
 
-      <section className={`${PANEL_CLASS} runtime-card runtime-log-card`}>
+      <motion.section className={`${PANEL_CLASS} runtime-card runtime-log-card`} {...CARD_MOTION} transition={{ ...MOTION_TRANSITION, delay: 0.03 }}>
         <div className={PANEL_HEAD_CLASS}>
           <div>
             <p className="eyebrow">Log</p>
@@ -1922,40 +2175,62 @@ function App() {
             <div className="empty-state">No runtime entries yet.</div>
           ) : (
             runtimeLogs.map((entry) => (
-              <article key={entry.id} className={logEntryClass(entry.level)}>
+              <motion.article
+                key={entry.id}
+                layout
+                {...LOG_MOTION}
+                transition={MOTION_TRANSITION}
+                className={`${logEntryClass(entry.level)} ${hasJsonPayload(entry.payload) ? "log-entry-clickable" : ""}`}
+                role={hasJsonPayload(entry.payload) ? "button" : undefined}
+                tabIndex={hasJsonPayload(entry.payload) ? 0 : undefined}
+                onClick={hasJsonPayload(entry.payload) ? () => openLogPayloadJson(entry) : undefined}
+                onKeyDown={
+                  hasJsonPayload(entry.payload)
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openLogPayloadJson(entry);
+                        }
+                      }
+                    : undefined
+                }
+                title={hasJsonPayload(entry.payload) ? "Open reported JSON" : undefined}
+              >
                 <div className="card-body p-3">
                   <div className="log-entry-head">
                     <strong>{entry.title}</strong>
-                    <span>{formatDate(entry.timestamp)}</span>
+                    <div className="log-entry-actions">
+                      <span>{formatDate(entry.timestamp)}</span>
+                    </div>
                   </div>
                   <p>{entry.detail}</p>
                 </div>
-              </article>
+              </motion.article>
             ))
           )}
         </div>
-      </section>
+      </motion.section>
 
-      <section className={`${PANEL_CLASS} runtime-card runtime-debug-card`}>
+      <motion.section className={`${PANEL_CLASS} runtime-card runtime-debug-card`} {...CARD_MOTION} transition={{ ...MOTION_TRANSITION, delay: 0.06 }}>
         <div className={PANEL_HEAD_CLASS}>
           <div>
             <p className="eyebrow">Debug</p>
             <h3>Discord payload JSON</h3>
           </div>
-          <button className={BUTTON_CLASS} type="button" onClick={() => setDiscordDebugOpen(true)}>
+          <button className={BUTTON_CLASS} type="button" onClick={openDiscordPayloadJson}>
             Open payload JSON
           </button>
         </div>
         {discordDebugPayload ? (
           <div className="empty-state">
-            Open payload JSON to inspect the exact data being pushed into Discord.
+            Open payload JSON to inspect the current data being pushed into Discord.
           </div>
         ) : (
           <div className="empty-state">
             No Discord payload has been published yet. Start runtime and wait for a captured activity to pass the current rules.
           </div>
         )}
-      </section>
+      </motion.section>
     </div>
   );
 
@@ -2020,7 +2295,18 @@ function App() {
               <p>{activeCopy.description}</p>
             </div>
           </header>
-          <div className="content-body">{renderSection()}</div>
+          <div className="content-body">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeSection}
+                className="section-motion"
+                {...VIEW_MOTION}
+                transition={MOTION_TRANSITION}
+              >
+                {renderSection()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </section>
       </section>
 
@@ -2075,32 +2361,30 @@ function App() {
         </section>
       ) : null}
 
-      {discordDebugOpen ? (
-        <section className="modal modal-open" onClick={() => setDiscordDebugOpen(false)}>
+      {jsonViewer ? (
+        <section className="modal modal-open" onClick={() => setJsonViewer(null)}>
           <div
             className="modal-box w-11/12 max-w-4xl p-0"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="discord-debug-dialog-title"
+            aria-labelledby="json-viewer-dialog-title"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="card-body">
               <div className={PANEL_HEAD_CLASS}>
                 <div>
-                  <p className="eyebrow">Debug</p>
-                  <h3 id="discord-debug-dialog-title" className="card-title">Discord payload JSON</h3>
-                  <p>Inspect the exact payload being pushed into Discord.</p>
+                  <p className="eyebrow">{jsonViewer.eyebrow}</p>
+                  <h3 id="json-viewer-dialog-title" className="card-title">{jsonViewer.title}</h3>
+                  <p>{jsonViewer.description}</p>
                 </div>
-                <button className={BUTTON_CLASS} type="button" onClick={() => setDiscordDebugOpen(false)}>
+                <button className={BUTTON_CLASS} type="button" onClick={() => setJsonViewer(null)}>
                   Close
                 </button>
               </div>
-              {discordDebugPayload ? (
-                <pre className="debug-json">{discordDebugJson}</pre>
+              {jsonViewer.value ? (
+                <pre className="debug-json">{jsonViewerJson}</pre>
               ) : (
-                <div className="empty-state">
-                  No Discord payload has been published yet. Start runtime and wait for a captured activity to pass the current rules.
-                </div>
+                <div className="empty-state">{jsonViewer.emptyText}</div>
               )}
             </div>
           </div>

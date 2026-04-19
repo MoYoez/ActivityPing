@@ -18,11 +18,11 @@ use tauri::RunEvent;
 #[cfg(desktop)]
 use tauri::{Emitter, Manager};
 #[cfg(desktop)]
-use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_autostart::{init as init_autostart, MacosLauncher};
 
 #[cfg(desktop)]
-use discord_presence::{config_is_ready as discord_config_is_ready, DiscordPresenceRuntime};
-use realtime_reporter::{config_is_ready, ReporterRuntime};
+use discord_presence::DiscordPresenceRuntime;
+use realtime_reporter::ReporterRuntime;
 
 #[cfg(desktop)]
 const SINGLE_INSTANCE_EVENT: &str = "single-instance-attempted";
@@ -48,12 +48,6 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_opener::init());
 
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_autostart::init(
-        MacosLauncher::LaunchAgent,
-        None::<Vec<&str>>,
-    ));
-
-    #[cfg(desktop)]
     let builder = builder
         .manage(ReporterRuntime::new())
         .manage(DiscordPresenceRuntime::new());
@@ -62,31 +56,13 @@ pub fn run() {
         .setup(|app| {
             #[cfg(desktop)]
             {
+                app.handle()
+                    .plugin(init_autostart(MacosLauncher::LaunchAgent, None::<Vec<&str>>))
+                    .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
+
                 tray::setup_tray(&app.handle())
                     .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
 
-                let saved_state = state_store::load_app_state(&app.handle())
-                    .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
-
-                if saved_state.config.runtime_autostart_enabled
-                    && config_is_ready(&saved_state.config)
-                {
-                    let reporter = app.state::<ReporterRuntime>();
-                    let _ = reporter.start(
-                        saved_state.config.clone(),
-                        backend_locale::BackendLocale::from_preference(&saved_state.locale),
-                    );
-                }
-
-                if saved_state.config.runtime_autostart_enabled
-                    && discord_config_is_ready(&saved_state.config)
-                {
-                    let discord_presence_runtime = app.state::<DiscordPresenceRuntime>();
-                    let _ = discord_presence_runtime.start(
-                        saved_state.config.clone(),
-                        backend_locale::BackendLocale::from_preference(&saved_state.locale),
-                    );
-                }
             }
 
             Ok(())
@@ -111,6 +87,7 @@ pub fn run() {
         commands::save_app_state,
         commands::get_client_capabilities,
         commands::hide_to_tray,
+        commands::set_launch_on_startup,
         commands::start_realtime_reporter,
         commands::stop_realtime_reporter,
         commands::get_realtime_reporter_snapshot,

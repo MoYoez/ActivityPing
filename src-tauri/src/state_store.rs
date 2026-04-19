@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -8,12 +9,13 @@ use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
 use crate::{
-    models::AppStatePayload,
-    rules::{normalize_client_config, normalize_string_list},
+    models::{AppHistoryEntry, AppStatePayload, PlaySourceHistoryEntry},
+    rules::normalize_client_config,
 };
 
 const APP_STATE_FILE_NAME: &str = "client-state.json";
 const DEFAULT_LOCALE: &str = "en-US";
+const MAX_HISTORY_RECORDS: usize = 3;
 
 fn app_state_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
@@ -36,8 +38,71 @@ fn normalize_state(payload: &mut AppStatePayload) {
         payload.locale = DEFAULT_LOCALE.to_string();
     }
     normalize_client_config(&mut payload.config);
-    payload.app_history = normalize_string_list(&payload.app_history, false);
-    payload.play_source_history = normalize_string_list(&payload.play_source_history, true);
+    payload.app_history = normalize_app_history(&payload.app_history);
+    payload.play_source_history = normalize_play_source_history(&payload.play_source_history);
+}
+
+fn normalize_optional_string(value: &Option<String>) -> Option<String> {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn normalize_app_history(values: &[AppHistoryEntry]) -> Vec<AppHistoryEntry> {
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+
+    for value in values {
+        let process_name = value.process_name.trim();
+        if process_name.is_empty() {
+            continue;
+        }
+        let key = process_name.to_lowercase();
+        if !seen.insert(key) {
+            continue;
+        }
+        result.push(AppHistoryEntry {
+            process_name: process_name.to_string(),
+            process_title: normalize_optional_string(&value.process_title),
+            status_text: normalize_optional_string(&value.status_text),
+            updated_at: normalize_optional_string(&value.updated_at),
+        });
+        if result.len() >= MAX_HISTORY_RECORDS {
+            break;
+        }
+    }
+
+    result
+}
+
+fn normalize_play_source_history(values: &[PlaySourceHistoryEntry]) -> Vec<PlaySourceHistoryEntry> {
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+
+    for value in values {
+        let source = value.source.trim().to_lowercase();
+        if source.is_empty() {
+            continue;
+        }
+        if !seen.insert(source.clone()) {
+            continue;
+        }
+        result.push(PlaySourceHistoryEntry {
+            source,
+            media_title: normalize_optional_string(&value.media_title),
+            media_artist: normalize_optional_string(&value.media_artist),
+            media_album: normalize_optional_string(&value.media_album),
+            media_summary: normalize_optional_string(&value.media_summary),
+            updated_at: normalize_optional_string(&value.updated_at),
+        });
+        if result.len() >= MAX_HISTORY_RECORDS {
+            break;
+        }
+    }
+
+    result
 }
 
 pub fn load_app_state(app: &AppHandle) -> Result<AppStatePayload, String> {

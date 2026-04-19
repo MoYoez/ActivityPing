@@ -8,7 +8,7 @@ use std::{
 };
 
 use chrono::Utc;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::{
     backend_locale::BackendLocale,
@@ -304,7 +304,7 @@ fn run_reporter_loop(
                 match resolve_activity(&config, &snapshot, &media) {
                     Some(resolved) => {
                         let current_activity = build_reporter_activity(&resolved, &media);
-                        update_snapshot(&state, Some(current_activity), None, None, run_id);
+                        update_snapshot(&state, Some(current_activity.clone()), None, None, run_id);
 
                         let same_as_last = last_signature
                             .as_ref()
@@ -327,6 +327,8 @@ fn run_reporter_loop(
 
                         if should_emit {
                             let is_heartbeat = same_as_last;
+                            let log_payload =
+                                Some(build_report_log_payload(&resolved, &current_activity));
                             push_background_log(
                                 &state,
                                 &mut sequence_seed,
@@ -341,11 +343,11 @@ fn run_reporter_loop(
                                 } else {
                                     format!("Captured {}.", resolved.summary)
                                 }),
-                                None,
+                                log_payload,
                             );
                             update_snapshot(
                                 &state,
-                                Some(build_reporter_activity(&resolved, &media)),
+                                Some(current_activity),
                                 None,
                                 Some(now_iso_string()),
                                 run_id,
@@ -416,10 +418,6 @@ fn should_capture_process_name(config: &ClientConfig) -> bool {
         || !config.app_whitelist.is_empty()
 }
 
-pub fn config_is_ready(_config: &ClientConfig) -> bool {
-    true
-}
-
 fn build_reporter_activity(
     resolved: &crate::rules::ResolvedActivity,
     media: &MediaInfo,
@@ -427,6 +425,21 @@ fn build_reporter_activity(
     ReporterActivity {
         process_name: resolved.process_name.clone(),
         process_title: resolved.process_title.clone(),
+        media_title: if media.is_active() {
+            non_empty_string(&media.title)
+        } else {
+            None
+        },
+        media_artist: if media.is_active() {
+            non_empty_string(&media.artist)
+        } else {
+            None
+        },
+        media_album: if media.is_active() {
+            non_empty_string(&media.album)
+        } else {
+            None
+        },
         media_summary: resolved.media_summary.clone(),
         media_duration_ms: if media.is_active() {
             media.duration_ms
@@ -441,6 +454,30 @@ fn build_reporter_activity(
         play_source: resolved.play_source.clone(),
         status_text: resolved.status_text.clone(),
         updated_at: Some(now_iso_string()),
+    }
+}
+
+fn build_report_log_payload(
+    resolved: &crate::rules::ResolvedActivity,
+    activity: &ReporterActivity,
+) -> Value {
+    json!({
+        "summary": resolved.summary.clone(),
+        "signature": resolved.signature.clone(),
+        "activity": activity,
+        "discord": {
+            "details": resolved.discord_details.clone(),
+            "state": resolved.discord_state.clone(),
+        },
+    })
+}
+
+fn non_empty_string(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
     }
 }
 

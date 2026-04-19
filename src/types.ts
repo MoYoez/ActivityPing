@@ -55,9 +55,25 @@ export interface ClientConfig {
 
 export interface AppStatePayload {
   config: ClientConfig;
-  appHistory: string[];
-  playSourceHistory: string[];
+  appHistory: AppHistoryEntry[];
+  playSourceHistory: PlaySourceHistoryEntry[];
   locale?: string;
+}
+
+export interface AppHistoryEntry {
+  processName: string;
+  processTitle?: string | null;
+  statusText?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface PlaySourceHistoryEntry {
+  source: string;
+  mediaTitle?: string | null;
+  mediaArtist?: string | null;
+  mediaAlbum?: string | null;
+  mediaSummary?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface ApiError {
@@ -78,6 +94,9 @@ export interface ApiResult<T> {
 export interface ReporterActivity {
   processName: string;
   processTitle?: string | null;
+  mediaTitle?: string | null;
+  mediaArtist?: string | null;
+  mediaAlbum?: string | null;
   mediaSummary?: string | null;
   mediaDurationMs?: number | null;
   mediaPositionMs?: number | null;

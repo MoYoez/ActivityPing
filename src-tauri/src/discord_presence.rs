@@ -912,10 +912,6 @@ fn validate_discord_presence_config(
     Ok(())
 }
 
-pub fn config_is_ready(config: &ClientConfig) -> bool {
-    validate_discord_presence_config(config, BackendLocale::EnUs).is_ok()
-}
-
 fn update_presence_snapshot(
     state: &Arc<Mutex<DiscordPresenceInner>>,
     connected: bool,
