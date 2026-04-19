@@ -2,6 +2,8 @@ export type AppTitleRuleMode = "plain" | "regex";
 export type AppFilterMode = "blacklist" | "whitelist";
 export type DiscordReportMode = "music" | "app" | "mixed" | "custom";
 export type DiscordActivityType = "playing" | "listening" | "watching" | "competing";
+export type DiscordStatusDisplay = "name" | "state" | "details";
+export type DiscordAppNameMode = "default" | "song" | "artist" | "album" | "custom";
 
 export interface ClientCapabilities {
   realtimeReporter: boolean;
@@ -21,6 +23,35 @@ export interface AppMessageRuleGroup {
   processMatch: string;
   defaultText: string;
   titleRules: AppMessageTitleRule[];
+  buttons: DiscordRichPresenceButtonConfig[];
+  partyId: string;
+  partySizeCurrent?: number | null;
+  partySizeMax?: number | null;
+  joinSecret: string;
+  spectateSecret: string;
+  matchSecret: string;
+}
+
+export interface DiscordCustomPreset {
+  name: string;
+  activityType: DiscordActivityType;
+  statusDisplay: DiscordStatusDisplay;
+  appNameMode: DiscordAppNameMode;
+  customAppName: string;
+  detailsFormat: string;
+  stateFormat: string;
+  buttons: DiscordRichPresenceButtonConfig[];
+  partyId: string;
+  partySizeCurrent?: number | null;
+  partySizeMax?: number | null;
+  joinSecret: string;
+  spectateSecret: string;
+  matchSecret: string;
+}
+
+export interface DiscordRichPresenceButtonConfig {
+  label: string;
+  url: string;
 }
 
 export interface ClientConfig {
@@ -35,6 +66,18 @@ export interface ClientConfig {
   discordApplicationId: string;
   discordReportMode: DiscordReportMode;
   discordActivityType: DiscordActivityType;
+  discordSmartStatusDisplay: DiscordStatusDisplay;
+  discordSmartAppNameMode: DiscordAppNameMode;
+  discordSmartCustomAppName: string;
+  discordMusicStatusDisplay: DiscordStatusDisplay;
+  discordMusicAppNameMode: DiscordAppNameMode;
+  discordMusicCustomAppName: string;
+  discordAppStatusDisplay: DiscordStatusDisplay;
+  discordAppAppNameMode: DiscordAppNameMode;
+  discordAppCustomAppName: string;
+  discordCustomModeStatusDisplay: DiscordStatusDisplay;
+  discordCustomModeAppNameMode: DiscordAppNameMode;
+  discordCustomModeCustomAppName: string;
   discordSmartEnableMusicCountdown: boolean;
   discordSmartShowAppName: boolean;
   discordUseAppArtwork: boolean;
@@ -43,8 +86,19 @@ export interface ClientConfig {
   discordArtworkWorkerToken: string;
   discordDetailsFormat: string;
   discordStateFormat: string;
+  discordCustomButtons: DiscordRichPresenceButtonConfig[];
+  discordCustomPartyId: string;
+  discordCustomPartySizeCurrent?: number | null;
+  discordCustomPartySizeMax?: number | null;
+  discordCustomJoinSecret: string;
+  discordCustomSpectateSecret: string;
+  discordCustomMatchSecret: string;
+  discordUseCustomAddonsOverride: boolean;
+  discordCustomPresets: DiscordCustomPreset[];
   launchOnStartup: boolean;
   captureReportedAppsEnabled: boolean;
+  captureHistoryRecordLimit: number;
+  captureHistoryTitleLimit: number;
   appMessageRules: AppMessageRuleGroup[];
   appMessageRulesShowProcessName: boolean;
   appFilterMode: AppFilterMode;
@@ -64,6 +118,7 @@ export interface AppStatePayload {
 export interface AppHistoryEntry {
   processName: string;
   processTitle?: string | null;
+  processTitles?: string[];
   statusText?: string | null;
   updatedAt?: string | null;
 }
@@ -95,6 +150,7 @@ export interface ApiResult<T> {
 export interface ReporterActivity {
   processName: string;
   processTitle?: string | null;
+  rawProcessTitle?: string | null;
   mediaTitle?: string | null;
   mediaArtist?: string | null;
   mediaAlbum?: string | null;
@@ -139,12 +195,14 @@ export interface DiscordPresenceSnapshot {
 }
 
 export interface DiscordDebugPayload {
+  activityName?: string | null;
   details: string;
   state?: string | null;
   summary: string;
   signature: string;
   reportModeApplied: string;
   activityType: string;
+  statusDisplayType?: string | null;
   startedAtMillis?: number | null;
   endedAtMillis?: number | null;
   mediaDurationMs?: number | null;

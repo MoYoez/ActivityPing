@@ -121,7 +121,7 @@ char *waken_media_now_playing_json(void) {
     return result;
 }
 
-char *waken_bundle_icon_png_base64(const char *bundle_identifier) {
+char *waken_bundle_icon_png_base64(const char *bundle_identifier, int target_size) {
     if (bundle_identifier == NULL) return NULL;
 
     NSString *bundleIdentifier = [NSString stringWithUTF8String:bundle_identifier];
@@ -145,21 +145,41 @@ char *waken_bundle_icon_png_base64(const char *bundle_identifier) {
 
     if (!icon) return NULL;
 
-    NSSize targetSize = NSMakeSize(128, 128);
-    NSImage *rendered = [[NSImage alloc] initWithSize:targetSize];
-    [rendered lockFocus];
-    [[NSGraphicsContext currentContext] setImageInterpolation:NSImageInterpolationHigh];
-    [icon drawInRect:NSMakeRect(0, 0, targetSize.width, targetSize.height)
-            fromRect:NSZeroRect
-           operation:NSCompositingOperationSourceOver
-            fraction:1.0];
-    [rendered unlockFocus];
+    CGFloat clampedTarget = MAX(32, MIN(target_size, 1024));
+    NSSize outputSize = NSMakeSize(clampedTarget, clampedTarget);
+    NSRect outputRect = NSMakeRect(0, 0, outputSize.width, outputSize.height);
 
-    NSData *tiffData = [rendered TIFFRepresentation];
-    if (!tiffData) return NULL;
-
-    NSBitmapImageRep *imageRep = [NSBitmapImageRep imageRepWithData:tiffData];
+    NSBitmapImageRep *imageRep = [[NSBitmapImageRep alloc]
+        initWithBitmapDataPlanes:NULL
+                      pixelsWide:(NSInteger)outputSize.width
+                      pixelsHigh:(NSInteger)outputSize.height
+                   bitsPerSample:8
+                 samplesPerPixel:4
+                        hasAlpha:YES
+                        isPlanar:NO
+                  colorSpaceName:NSCalibratedRGBColorSpace
+                    bytesPerRow:0
+                   bitsPerPixel:0];
     if (!imageRep) return NULL;
+
+    NSGraphicsContext *context = [NSGraphicsContext graphicsContextWithBitmapImageRep:imageRep];
+    if (!context) return NULL;
+
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:context];
+    [[NSGraphicsContext currentContext] setImageInterpolation:NSImageInterpolationHigh];
+
+    NSImageRep *bestRep = [icon bestRepresentationForRect:outputRect context:nil hints:nil];
+    if (bestRep) {
+        [bestRep drawInRect:outputRect];
+    } else {
+        [icon drawInRect:outputRect
+                fromRect:NSZeroRect
+               operation:NSCompositingOperationSourceOver
+                fraction:1.0];
+    }
+
+    [NSGraphicsContext restoreGraphicsState];
 
     NSData *pngData = [imageRep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
     if (!pngData || pngData.length == 0) return NULL;

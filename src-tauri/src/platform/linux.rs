@@ -21,6 +21,7 @@ const COMMAND_TIMEOUT: Duration = Duration::from_millis(1500);
 const COMMAND_POLL_STEP: Duration = Duration::from_millis(100);
 const ICON_SEARCH_DEPTH: usize = 5;
 const RASTER_ICON_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg"];
+const PREFERRED_ICON_SIZES: [i32; 5] = [256, 192, 128, 96, 64];
 
 fn source_icon_cache() -> &'static Mutex<HashMap<String, Option<super::MediaArtwork>>> {
     static CACHE: OnceLock<Mutex<HashMap<String, Option<super::MediaArtwork>>>> = OnceLock::new();
@@ -162,7 +163,8 @@ pub fn get_now_playing() -> Result<MediaInfo, String> {
 }
 
 pub fn get_foreground_app_icon() -> Result<Option<super::MediaArtwork>, String> {
-    Ok(None)
+    let snapshot = get_foreground_snapshot_for_reporting(true, false)?;
+    Ok(read_source_app_icon(&snapshot.process_name))
 }
 
 fn read_player_position_ms() -> Result<Option<u64>, String> {
@@ -547,11 +549,23 @@ fn score_icon_path(path: &Path) -> i32 {
         .ancestors()
         .filter_map(|ancestor| ancestor.file_name().and_then(|value| value.to_str()))
         .filter_map(parse_icon_size_component)
-        .map(|size| 200 - (size - 128).abs())
+        .map(score_icon_size)
         .max()
         .unwrap_or(0);
 
     extension_score + size_score
+}
+
+fn score_icon_size(size: i32) -> i32 {
+    PREFERRED_ICON_SIZES
+        .iter()
+        .enumerate()
+        .map(|(index, preferred)| {
+            let preference_bonus = 320 - (index as i32 * 35);
+            preference_bonus - (size - preferred).abs()
+        })
+        .max()
+        .unwrap_or(0)
 }
 
 fn parse_icon_size_component(value: &str) -> Option<i32> {

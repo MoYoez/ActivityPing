@@ -11,17 +11,23 @@ use chrono::Utc;
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 
 use crate::{
-    artwork_server::{prepare_artwork_publisher, ArtworkPublisher},
+    artwork_server::{prepare_artwork_publisher, ArtworkPublisher, PublishAssetKind},
     backend_locale::BackendLocale,
     models::{
-        ClientConfig, DiscordActivityType, DiscordDebugPayload, DiscordPresenceSnapshot,
-        DiscordReportMode,
+        ClientConfig, DiscordActivityType, DiscordAppNameMode, DiscordDebugPayload,
+        DiscordPresenceSnapshot, DiscordReportMode, DiscordStatusDisplay,
     },
     platform::{
         display_name_for_app_id, get_foreground_app_icon, get_foreground_snapshot_for_reporting,
-        get_now_playing, MediaArtwork, MediaInfo,
+        get_now_playing, ForegroundSnapshot, MediaArtwork, MediaInfo,
     },
-    rules::{normalize_client_config, resolve_activity},
+    rules::{
+        normalize_client_config, resolve_activity,
+        should_capture_foreground_app_icon_for_reporting,
+        should_capture_foreground_snapshot_for_reporting, should_capture_media_for_reporting,
+        should_capture_process_name_for_reporting, should_capture_window_title_for_reporting,
+        ResolvedActivity, ResolvedDiscordAddons,
+    },
 };
 
 const DEFAULT_SYNC_INTERVAL: Duration = Duration::from_secs(5);
@@ -50,8 +56,10 @@ pub struct DiscordPresenceRuntime {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct DiscordPresencePayload {
+    activity_name: Option<String>,
     details: String,
     state: Option<String>,
+    status_display_type: Option<DiscordPresenceStatusDisplayType>,
     started_at_millis: Option<i64>,
     ended_at_millis: Option<i64>,
     media_duration_ms: Option<u64>,
@@ -61,6 +69,9 @@ struct DiscordPresencePayload {
     signature: String,
     artwork: Option<DiscordPresenceArtwork>,
     icon: Option<DiscordPresenceIcon>,
+    buttons: Vec<DiscordPresenceButton>,
+    party: Option<DiscordPresenceParty>,
+    secrets: Option<DiscordPresenceSecrets>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -72,11 +83,46 @@ struct DiscordPresenceArtwork {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+enum DiscordPresenceStatusDisplayType {
+    Name,
+    State,
+    Details,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct DiscordPresenceIcon {
     bytes: Vec<u8>,
     content_type: String,
     hover_text: String,
     cache_key: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DiscordPresenceButton {
+    label: String,
+    url: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DiscordPresenceParty {
+    id: Option<String>,
+    size: Option<[i32; 2]>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DiscordPresenceSecrets {
+    join: Option<String>,
+    spectate: Option<String>,
+    match_secret: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DiscordPresenceText {
+    activity_name: Option<String>,
+    details: String,
+    state: Option<String>,
+    summary: String,
+    signature: String,
 }
 
 impl DiscordPresencePayload {
@@ -96,13 +142,40 @@ impl DiscordPresencePayload {
         } else {
             self.media_position_ms
         };
+        let button_key = self
+            .buttons
+            .iter()
+            .map(|button| format!("{}={}", button.label, button.url))
+            .collect::<Vec<_>>()
+            .join("|");
+        let party_key = self.party.as_ref().map_or_else(String::new, |party| {
+            format!("{}:{:?}", party.id.as_deref().unwrap_or(""), party.size)
+        });
+        let secrets_key = self.secrets.as_ref().map_or_else(String::new, |secrets| {
+            format!(
+                "{}|{}|{}",
+                secrets.join.as_deref().unwrap_or(""),
+                secrets.spectate.as_deref().unwrap_or(""),
+                secrets.match_secret.as_deref().unwrap_or("")
+            )
+        });
         format!(
-            "{}\n{}\n{}\n{}\n{}\n{:?}\n{:?}\n{}",
+            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{:?}\n{:?}\n{}",
             self.signature,
+            self.activity_name.as_deref().unwrap_or(""),
             self.details,
             self.state.as_deref().unwrap_or(""),
+            match self.status_display_type {
+                Some(DiscordPresenceStatusDisplayType::Name) => "name",
+                Some(DiscordPresenceStatusDisplayType::State) => "state",
+                Some(DiscordPresenceStatusDisplayType::Details) => "details",
+                None => "",
+            },
             artwork_key,
             icon_key,
+            button_key,
+            party_key,
+            secrets_key,
             self.media_duration_ms,
             stable_position_ms,
             self.media_is_playing
@@ -333,17 +406,21 @@ fn run_discord_presence_loop(
 }
 
 fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresencePayload>, String> {
-    let snapshot = get_foreground_snapshot_for_reporting(
-        should_capture_process_name(config),
-        config.report_window_title,
-    )?;
+    let snapshot = if should_capture_foreground_snapshot_for_reporting(config) {
+        get_foreground_snapshot_for_reporting(
+            should_capture_process_name_for_reporting(config),
+            should_capture_window_title_for_reporting(config),
+        )?
+    } else {
+        ForegroundSnapshot::default()
+    };
 
-    let media = if config.report_media || config.report_play_source {
+    let media = if should_capture_media_for_reporting(config) {
         get_now_playing().unwrap_or_else(|_| MediaInfo::default())
     } else {
         MediaInfo::default()
     };
-    let foreground_app_icon = if config.discord_use_app_artwork {
+    let foreground_app_icon = if should_capture_foreground_app_icon_for_reporting(config) {
         get_foreground_app_icon().unwrap_or(None)
     } else {
         None
@@ -352,6 +429,10 @@ fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresenc
     let Some(resolved) = resolve_activity(config, &snapshot, &media) else {
         return Ok(None);
     };
+    let Some(text) = build_presence_text(config, &resolved, &media) else {
+        return Ok(None);
+    };
+    let active_addons = select_presence_addons(config, &resolved);
     let (started_at_millis, ended_at_millis) = if should_use_media_timestamps(config, &resolved) {
         build_media_timestamps(config, &media)
     } else {
@@ -360,8 +441,10 @@ fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresenc
     let media_reportable = media.is_reportable(config.report_stopped_media);
 
     Ok(Some(DiscordPresencePayload {
-        details: resolved.discord_details,
-        state: resolved.discord_state,
+        activity_name: text.activity_name,
+        details: text.details,
+        state: text.state,
+        status_display_type: build_status_display_type(config),
         started_at_millis,
         ended_at_millis,
         media_duration_ms: if media_reportable {
@@ -375,8 +458,8 @@ fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresenc
             None
         },
         media_is_playing: media.is_playing,
-        summary: resolved.summary,
-        signature: resolved.signature,
+        summary: text.summary,
+        signature: text.signature,
         artwork: build_presence_artwork(config, &media),
         icon: build_presence_icon(
             config,
@@ -384,21 +467,10 @@ fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresenc
             foreground_app_icon.as_ref(),
             &media,
         ),
+        buttons: build_presence_buttons(&active_addons),
+        party: build_presence_party(&active_addons),
+        secrets: build_presence_secrets(&active_addons),
     }))
-}
-
-fn should_capture_process_name(config: &ClientConfig) -> bool {
-    config.report_foreground_app
-        || config.discord_smart_show_app_name
-        || config.app_message_rules_show_process_name
-        || !config.app_message_rules.is_empty()
-        || !config.app_name_only_list.is_empty()
-        || matches!(
-            config.app_filter_mode,
-            crate::models::AppFilterMode::Whitelist
-        )
-        || !config.app_blacklist.is_empty()
-        || !config.app_whitelist.is_empty()
 }
 
 fn apply_discord_presence(
@@ -410,9 +482,18 @@ fn apply_discord_presence(
     locale: BackendLocale,
 ) -> Result<DiscordDebugPayload, String> {
     with_discord_client(client_slot, application_id, locale, |client| {
-        let mut activity_payload = activity::Activity::new()
-            .details(payload.details.clone())
-            .activity_type(effective_activity_type(config));
+        let mut activity_payload =
+            activity::Activity::new().activity_type(effective_activity_type(config));
+        if let Some(name) = payload.activity_name.as_deref() {
+            activity_payload = activity_payload.name(name.to_string());
+        }
+        if !payload.details.trim().is_empty() {
+            activity_payload = activity_payload.details(payload.details.clone());
+        }
+        if let Some(status_display_type) = payload.status_display_type.as_ref() {
+            activity_payload =
+                activity_payload.status_display_type(map_status_display_type(status_display_type));
+        }
         let mut artwork_url = None;
         let mut artwork_hover_text = None;
         let mut artwork_content_type = None;
@@ -424,11 +505,16 @@ fn apply_discord_presence(
             if let (Some(artwork), Some(artwork_publisher)) =
                 (payload.artwork.as_ref(), artwork_publisher)
             {
-                match artwork_publisher.publish(artwork.bytes.clone(), artwork.cache_key.clone()) {
+                match artwork_publisher.publish(
+                    artwork.bytes.clone(),
+                    artwork.cache_key.clone(),
+                    PublishAssetKind::MusicArtwork,
+                ) {
                     Ok(image_url) => {
                         artwork_url = Some(image_url.clone());
                         artwork_hover_text = Some(artwork.hover_text.clone());
-                        artwork_content_type = Some("image/jpeg".to_string());
+                        artwork_content_type =
+                            Some(PublishAssetKind::MusicArtwork.content_type().to_string());
                         activity_payload = activity_payload.assets(
                             activity::Assets::new()
                                 .large_image(image_url)
@@ -444,7 +530,11 @@ fn apply_discord_presence(
             if let (Some(icon), Some(artwork_publisher)) =
                 (payload.icon.as_ref(), artwork_publisher)
             {
-                match artwork_publisher.publish(icon.bytes.clone(), icon.cache_key.clone()) {
+                match artwork_publisher.publish(
+                    icon.bytes.clone(),
+                    icon.cache_key.clone(),
+                    PublishAssetKind::AppIcon,
+                ) {
                     Ok(image_url) => {
                         app_icon_url = Some(image_url);
                         app_icon_text = Some(icon.hover_text.clone());
@@ -484,6 +574,38 @@ fn apply_discord_presence(
         if let Some(state) = payload.state.as_deref() {
             activity_payload = activity_payload.state(state.to_string());
         }
+        if !payload.buttons.is_empty() {
+            activity_payload = activity_payload.buttons(
+                payload
+                    .buttons
+                    .iter()
+                    .map(|button| activity::Button::new(button.label.clone(), button.url.clone()))
+                    .collect(),
+            );
+        }
+        if let Some(party) = payload.party.as_ref() {
+            let mut activity_party = activity::Party::new();
+            if let Some(id) = party.id.as_deref() {
+                activity_party = activity_party.id(id.to_string());
+            }
+            if let Some(size) = party.size {
+                activity_party = activity_party.size(size);
+            }
+            activity_payload = activity_payload.party(activity_party);
+        }
+        if let Some(secrets) = payload.secrets.as_ref() {
+            let mut activity_secrets = activity::Secrets::new();
+            if let Some(join) = secrets.join.as_deref() {
+                activity_secrets = activity_secrets.join(join.to_string());
+            }
+            if let Some(spectate) = secrets.spectate.as_deref() {
+                activity_secrets = activity_secrets.spectate(spectate.to_string());
+            }
+            if let Some(match_secret) = secrets.match_secret.as_deref() {
+                activity_secrets = activity_secrets.r#match(match_secret.to_string());
+            }
+            activity_payload = activity_payload.secrets(activity_secrets);
+        }
         let mut timestamps = activity::Timestamps::new();
         let mut has_timestamps = false;
         if let Some(started_at) = payload.started_at_millis {
@@ -502,12 +624,21 @@ fn apply_discord_presence(
             .map_err(|error| format_error(locale, "Failed to update Discord presence", error))?;
 
         Ok(DiscordDebugPayload {
+            activity_name: payload.activity_name.clone(),
             details: payload.details.clone(),
             state: payload.state.clone(),
             summary: payload.summary.clone(),
             signature: payload.signature.clone(),
             report_mode_applied: report_mode_key(config).to_string(),
             activity_type: activity_type_key(config).to_string(),
+            status_display_type: payload
+                .status_display_type
+                .as_ref()
+                .map(|value| match value {
+                    DiscordPresenceStatusDisplayType::Name => "name".to_string(),
+                    DiscordPresenceStatusDisplayType::State => "state".to_string(),
+                    DiscordPresenceStatusDisplayType::Details => "details".to_string(),
+                }),
             started_at_millis: payload.started_at_millis,
             ended_at_millis: payload.ended_at_millis,
             media_duration_ms: payload.media_duration_ms,
@@ -529,6 +660,16 @@ fn map_activity_type(value: &DiscordActivityType) -> activity::ActivityType {
         DiscordActivityType::Watching => activity::ActivityType::Watching,
         DiscordActivityType::Competing => activity::ActivityType::Competing,
         DiscordActivityType::Playing => activity::ActivityType::Playing,
+    }
+}
+
+fn map_status_display_type(
+    value: &DiscordPresenceStatusDisplayType,
+) -> activity::StatusDisplayType {
+    match value {
+        DiscordPresenceStatusDisplayType::Name => activity::StatusDisplayType::Name,
+        DiscordPresenceStatusDisplayType::State => activity::StatusDisplayType::State,
+        DiscordPresenceStatusDisplayType::Details => activity::StatusDisplayType::Details,
     }
 }
 
@@ -576,6 +717,388 @@ fn should_use_media_timestamps(
         DiscordReportMode::Custom => resolved.status_text.is_none(),
         DiscordReportMode::App => false,
     }
+}
+
+fn build_presence_text(
+    config: &ClientConfig,
+    resolved: &ResolvedActivity,
+    media: &MediaInfo,
+) -> Option<DiscordPresenceText> {
+    match config.discord_report_mode {
+        DiscordReportMode::Music => build_music_presence_text(config, media),
+        DiscordReportMode::App => build_app_presence_text(config, resolved),
+        DiscordReportMode::Mixed => build_smart_presence_text(config, resolved, media),
+        DiscordReportMode::Custom => build_custom_presence_text(config, resolved, media),
+    }
+}
+
+fn build_music_presence_text(
+    config: &ClientConfig,
+    media: &MediaInfo,
+) -> Option<DiscordPresenceText> {
+    if !is_music_visible(config, media) {
+        return None;
+    }
+
+    let details =
+        first_non_empty_presence_value(&[media.title.as_str(), media.summary().as_str()])?;
+    let state = non_empty_presence_value(media.artist.as_str());
+    Some(build_presence_text_from_parts(
+        build_music_only_activity_name(config, media),
+        details,
+        state,
+    ))
+}
+
+fn build_app_presence_text(
+    config: &ClientConfig,
+    resolved: &ResolvedActivity,
+) -> Option<DiscordPresenceText> {
+    let activity_name = primary_app_activity_name(config, resolved)?;
+    let details = secondary_app_details(config, resolved, Some(activity_name.as_str()));
+
+    Some(build_presence_text_from_parts(
+        Some(activity_name),
+        details,
+        None,
+    ))
+}
+
+fn build_smart_presence_text(
+    config: &ClientConfig,
+    resolved: &ResolvedActivity,
+    media: &MediaInfo,
+) -> Option<DiscordPresenceText> {
+    if let Some(activity_name) = primary_app_activity_name(config, resolved) {
+        let details = secondary_app_details(config, resolved, Some(activity_name.as_str()));
+        let state = smart_music_state(config, media);
+        return Some(build_presence_text_from_parts(
+            Some(activity_name),
+            details,
+            state,
+        ));
+    }
+
+    build_music_presence_text(config, media)
+}
+
+fn build_custom_presence_text(
+    config: &ClientConfig,
+    resolved: &ResolvedActivity,
+    media: &MediaInfo,
+) -> Option<DiscordPresenceText> {
+    Some(build_presence_text_from_parts(
+        build_custom_mode_activity_name(config, resolved, media),
+        resolved.discord_details.clone(),
+        resolved.discord_state.clone(),
+    ))
+}
+
+fn build_music_only_activity_name(config: &ClientConfig, media: &MediaInfo) -> Option<String> {
+    if !is_music_visible(config, media) {
+        return None;
+    }
+
+    match current_app_name_mode(config) {
+        DiscordAppNameMode::Default => None,
+        DiscordAppNameMode::Song => non_empty_presence_value(media.title.as_str()),
+        DiscordAppNameMode::Artist => non_empty_presence_value(media.artist.as_str()),
+        DiscordAppNameMode::Album => non_empty_presence_value(media.album.as_str()),
+        DiscordAppNameMode::Custom => non_empty_presence_value(current_custom_app_name(config)),
+    }
+}
+
+fn build_custom_mode_activity_name(
+    config: &ClientConfig,
+    resolved: &ResolvedActivity,
+    media: &MediaInfo,
+) -> Option<String> {
+    match current_app_name_mode(config) {
+        DiscordAppNameMode::Default => primary_app_activity_name(config, resolved),
+        DiscordAppNameMode::Song
+        | DiscordAppNameMode::Artist
+        | DiscordAppNameMode::Album
+        | DiscordAppNameMode::Custom => build_music_only_activity_name(config, media),
+    }
+}
+
+fn primary_app_activity_name(config: &ClientConfig, resolved: &ResolvedActivity) -> Option<String> {
+    resolved
+        .status_text
+        .as_deref()
+        .and_then(non_empty_presence_value)
+        .or_else(|| {
+            resolved
+                .process_title
+                .as_deref()
+                .and_then(non_empty_presence_value)
+        })
+        .or_else(|| {
+            if config.report_foreground_app {
+                non_empty_presence_value(resolved.process_name.as_str())
+            } else {
+                None
+            }
+        })
+}
+
+fn secondary_app_details(
+    config: &ClientConfig,
+    resolved: &ResolvedActivity,
+    activity_name: Option<&str>,
+) -> String {
+    let should_show_app_name = match config.discord_report_mode {
+        DiscordReportMode::Mixed => config.discord_smart_show_app_name,
+        _ => config.report_foreground_app,
+    };
+
+    if !should_show_app_name {
+        return String::new();
+    }
+
+    let Some(process_name) = non_empty_presence_value(resolved.process_name.as_str()) else {
+        return String::new();
+    };
+
+    if activity_name == Some(process_name.as_str()) {
+        String::new()
+    } else {
+        process_name
+    }
+}
+
+fn smart_music_state(config: &ClientConfig, media: &MediaInfo) -> Option<String> {
+    if !is_music_visible(config, media) {
+        return None;
+    }
+
+    let summary =
+        first_non_empty_presence_value(&[media.summary().as_str(), media.title.as_str()])?;
+    Some(format!("🎵 {summary}"))
+}
+
+fn build_presence_text_from_parts(
+    activity_name: Option<String>,
+    details: String,
+    state: Option<String>,
+) -> DiscordPresenceText {
+    let details_ref = if details.trim().is_empty() {
+        None
+    } else {
+        Some(details.as_str())
+    };
+    let summary =
+        join_non_empty_presence(&[activity_name.as_deref(), details_ref, state.as_deref()]);
+    let signature = if summary.is_empty() {
+        activity_name.clone().unwrap_or_default()
+    } else {
+        summary.clone()
+    };
+
+    DiscordPresenceText {
+        activity_name,
+        details,
+        state,
+        summary,
+        signature,
+    }
+}
+
+fn build_status_display_type(config: &ClientConfig) -> Option<DiscordPresenceStatusDisplayType> {
+    Some(match current_status_display(config) {
+        DiscordStatusDisplay::Name => DiscordPresenceStatusDisplayType::Name,
+        DiscordStatusDisplay::State => DiscordPresenceStatusDisplayType::State,
+        DiscordStatusDisplay::Details => DiscordPresenceStatusDisplayType::Details,
+    })
+}
+
+fn current_status_display(config: &ClientConfig) -> &DiscordStatusDisplay {
+    match config.discord_report_mode {
+        DiscordReportMode::Mixed => &config.discord_smart_status_display,
+        DiscordReportMode::Music => &config.discord_music_status_display,
+        DiscordReportMode::App => &config.discord_app_status_display,
+        DiscordReportMode::Custom => &config.discord_custom_mode_status_display,
+    }
+}
+
+fn current_app_name_mode(config: &ClientConfig) -> &DiscordAppNameMode {
+    match config.discord_report_mode {
+        DiscordReportMode::Mixed => &config.discord_smart_app_name_mode,
+        DiscordReportMode::Music => &config.discord_music_app_name_mode,
+        DiscordReportMode::App => &config.discord_app_app_name_mode,
+        DiscordReportMode::Custom => &config.discord_custom_mode_app_name_mode,
+    }
+}
+
+fn current_custom_app_name(config: &ClientConfig) -> &str {
+    match config.discord_report_mode {
+        DiscordReportMode::Mixed => config.discord_smart_custom_app_name.as_str(),
+        DiscordReportMode::Music => config.discord_music_custom_app_name.as_str(),
+        DiscordReportMode::App => config.discord_app_custom_app_name.as_str(),
+        DiscordReportMode::Custom => config.discord_custom_mode_custom_app_name.as_str(),
+    }
+}
+
+fn non_empty_presence_value(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn first_non_empty_presence_value(values: &[&str]) -> Option<String> {
+    values
+        .iter()
+        .find_map(|value| non_empty_presence_value(value))
+}
+
+fn join_non_empty_presence(values: &[Option<&str>]) -> String {
+    values
+        .iter()
+        .filter_map(|value| {
+            value.and_then(|text| {
+                let trimmed = text.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            })
+        })
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
+fn is_music_visible(config: &ClientConfig, media: &MediaInfo) -> bool {
+    config.report_media && media.is_reportable(config.report_stopped_media)
+}
+
+fn has_custom_addons(config: &ClientConfig) -> bool {
+    !config.discord_custom_buttons.is_empty()
+        || !config.discord_custom_party_id.trim().is_empty()
+        || config.discord_custom_party_size_current.is_some()
+        || config.discord_custom_party_size_max.is_some()
+        || !config.discord_custom_join_secret.trim().is_empty()
+        || !config.discord_custom_spectate_secret.trim().is_empty()
+        || !config.discord_custom_match_secret.trim().is_empty()
+}
+
+fn build_custom_addons(config: &ClientConfig) -> ResolvedDiscordAddons {
+    let buttons = config
+        .discord_custom_buttons
+        .iter()
+        .map(|button| DiscordPresenceButton {
+            label: button.label.trim().to_string(),
+            url: button.url.trim().to_string(),
+        })
+        .filter(|button| !button.label.is_empty() && !button.url.is_empty())
+        .take(2)
+        .map(|button| crate::models::DiscordRichPresenceButtonConfig {
+            label: button.label,
+            url: button.url,
+        })
+        .collect();
+    let id = non_empty_presence_value(config.discord_custom_party_id.as_str());
+    let size = match (
+        config.discord_custom_party_size_current,
+        config.discord_custom_party_size_max,
+    ) {
+        (Some(current), Some(maximum)) if current > 0 && maximum > 0 && current <= maximum => {
+            Some((current, maximum))
+        }
+        _ => None,
+    };
+    let join = non_empty_presence_value(config.discord_custom_join_secret.as_str());
+    let spectate = non_empty_presence_value(config.discord_custom_spectate_secret.as_str());
+    let match_secret = non_empty_presence_value(config.discord_custom_match_secret.as_str());
+
+    ResolvedDiscordAddons {
+        buttons,
+        party: if id.is_none() && size.is_none() {
+            None
+        } else {
+            Some(crate::rules::ResolvedDiscordParty { id, size })
+        },
+        secrets: if join.is_none() && spectate.is_none() && match_secret.is_none() {
+            None
+        } else {
+            Some(crate::rules::ResolvedDiscordSecrets {
+                join,
+                spectate,
+                match_secret,
+            })
+        },
+    }
+}
+
+fn select_presence_addons(
+    config: &ClientConfig,
+    resolved: &ResolvedActivity,
+) -> ResolvedDiscordAddons {
+    let custom_addons = build_custom_addons(config);
+    let custom_addons_configured = has_custom_addons(config) && !custom_addons.is_empty();
+
+    if config.discord_report_mode == DiscordReportMode::Custom {
+        if custom_addons_configured {
+            return custom_addons;
+        }
+        return resolved.discord_addons.clone();
+    }
+
+    if config.discord_use_custom_addons_override && custom_addons_configured {
+        return custom_addons;
+    }
+
+    resolved.discord_addons.clone()
+}
+
+fn build_presence_buttons(addons: &ResolvedDiscordAddons) -> Vec<DiscordPresenceButton> {
+    addons
+        .buttons
+        .iter()
+        .map(|button| DiscordPresenceButton {
+            label: button.label.trim().to_string(),
+            url: button.url.trim().to_string(),
+        })
+        .filter(|button| !button.label.is_empty() && !button.url.is_empty())
+        .take(2)
+        .collect()
+}
+
+fn build_presence_party(addons: &ResolvedDiscordAddons) -> Option<DiscordPresenceParty> {
+    let party = addons.party.as_ref()?;
+    let size = match party.size {
+        Some((current, maximum)) if current > 0 && maximum > 0 && current <= maximum => {
+            let current = i32::try_from(current).ok()?;
+            let maximum = i32::try_from(maximum).ok()?;
+            Some([current, maximum])
+        }
+        _ => None,
+    };
+
+    if party.id.is_none() && size.is_none() {
+        return None;
+    }
+
+    Some(DiscordPresenceParty {
+        id: party.id.clone(),
+        size,
+    })
+}
+
+fn build_presence_secrets(addons: &ResolvedDiscordAddons) -> Option<DiscordPresenceSecrets> {
+    let secrets = addons.secrets.as_ref()?;
+    if secrets.join.is_none() && secrets.spectate.is_none() && secrets.match_secret.is_none() {
+        return None;
+    }
+
+    Some(DiscordPresenceSecrets {
+        join: secrets.join.clone(),
+        spectate: secrets.spectate.clone(),
+        match_secret: secrets.match_secret.clone(),
+    })
 }
 
 fn build_media_timestamps(config: &ClientConfig, media: &MediaInfo) -> (Option<i64>, Option<i64>) {
@@ -826,6 +1349,21 @@ mod tests {
         }
     }
 
+    fn sample_resolved() -> ResolvedActivity {
+        ResolvedActivity {
+            process_name: "Code.exe".into(),
+            process_title: Some("repo".into()),
+            media_summary: None,
+            play_source: None,
+            status_text: Some("Matched Title".into()),
+            discord_addons: ResolvedDiscordAddons::default(),
+            discord_details: "Matched Title".into(),
+            discord_state: Some("Code.exe".into()),
+            summary: "Matched Title · Code.exe".into(),
+            signature: "Matched Title · Code.exe".into(),
+        }
+    }
+
     #[test]
     fn presence_artwork_prefers_album_for_hover_text() {
         let config = artwork_config();
@@ -926,6 +1464,72 @@ mod tests {
     }
 
     #[test]
+    fn music_mode_can_override_activity_name_with_custom_text() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            discord_music_app_name_mode: crate::models::DiscordAppNameMode::Custom,
+            discord_music_custom_app_name: "My Custom App".into(),
+            ..ClientConfig::default()
+        };
+        let media = sample_media();
+
+        let value = build_music_only_activity_name(&config, &media);
+
+        assert_eq!(value, Some("My Custom App".to_string()));
+    }
+
+    #[test]
+    fn smart_mode_uses_rule_hit_as_name_and_app_as_details() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            discord_smart_show_app_name: true,
+            ..ClientConfig::default()
+        };
+        let resolved = sample_resolved();
+        let media = MediaInfo::default();
+
+        let text = build_smart_presence_text(&config, &resolved, &media).expect("text");
+
+        assert_eq!(text.activity_name, Some("Matched Title".to_string()));
+        assert_eq!(text.details, "Code.exe".to_string());
+        assert_eq!(text.state, None);
+    }
+
+    #[test]
+    fn smart_mode_puts_music_on_state_line() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            discord_smart_show_app_name: true,
+            ..ClientConfig::default()
+        };
+        let resolved = sample_resolved();
+        let media = sample_media();
+
+        let text = build_smart_presence_text(&config, &resolved, &media).expect("text");
+
+        assert_eq!(text.activity_name, Some("Matched Title".to_string()));
+        assert_eq!(text.details, "Code.exe".to_string());
+        assert_eq!(
+            text.state,
+            Some("🎵 Track Name / Artist Name / Album Name".to_string())
+        );
+    }
+
+    #[test]
+    fn competing_mode_can_set_status_display_to_state() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Custom,
+            discord_activity_type: crate::models::DiscordActivityType::Competing,
+            discord_custom_mode_status_display: crate::models::DiscordStatusDisplay::State,
+            ..ClientConfig::default()
+        };
+
+        let value = build_status_display_type(&config);
+
+        assert_eq!(value, Some(DiscordPresenceStatusDisplayType::State));
+    }
+
+    #[test]
     fn paused_media_uses_future_timestamps_when_visible() {
         let config = ClientConfig {
             discord_report_mode: DiscordReportMode::Music,
@@ -948,8 +1552,10 @@ mod tests {
     #[test]
     fn playing_timestamp_update_skips_small_end_drift() {
         let payload = DiscordPresencePayload {
+            activity_name: None,
             details: "Track Name".into(),
             state: Some("Artist Name".into()),
+            status_display_type: None,
             started_at_millis: Some(900_000),
             ended_at_millis: Some(1_000_050),
             media_duration_ms: Some(180_000),
@@ -959,10 +1565,62 @@ mod tests {
             signature: "Track Name".into(),
             artwork: None,
             icon: None,
+            buttons: Vec::new(),
+            party: None,
+            secrets: None,
         };
 
         assert!(should_skip_timestamp_update(&payload, Some(1_000_000)));
         assert!(!should_skip_timestamp_update(&payload, Some(999_800)));
+    }
+
+    #[test]
+    fn mixed_mode_can_publish_rule_buttons() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            ..ClientConfig::default()
+        };
+        let mut resolved = sample_resolved();
+        resolved.discord_addons = ResolvedDiscordAddons {
+            buttons: vec![crate::models::DiscordRichPresenceButtonConfig {
+                label: "Open".into(),
+                url: "https://example.com".into(),
+            }],
+            ..ResolvedDiscordAddons::default()
+        };
+
+        let addons = select_presence_addons(&config, &resolved);
+        let buttons = build_presence_buttons(&addons);
+
+        assert_eq!(buttons.len(), 1);
+        assert_eq!(buttons[0].label, "Open");
+    }
+
+    #[test]
+    fn custom_addons_override_rule_buttons_when_enabled() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Mixed,
+            discord_use_custom_addons_override: true,
+            discord_custom_buttons: vec![crate::models::DiscordRichPresenceButtonConfig {
+                label: "Profile".into(),
+                url: "https://example.com/profile".into(),
+            }],
+            ..ClientConfig::default()
+        };
+        let mut resolved = sample_resolved();
+        resolved.discord_addons = ResolvedDiscordAddons {
+            buttons: vec![crate::models::DiscordRichPresenceButtonConfig {
+                label: "Rule".into(),
+                url: "https://example.com/rule".into(),
+            }],
+            ..ResolvedDiscordAddons::default()
+        };
+
+        let addons = select_presence_addons(&config, &resolved);
+        let buttons = build_presence_buttons(&addons);
+
+        assert_eq!(buttons.len(), 1);
+        assert_eq!(buttons[0].label, "Profile");
     }
 }
 

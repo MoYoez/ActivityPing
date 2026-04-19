@@ -3,10 +3,12 @@ use std::collections::HashSet;
 use crate::{
     models::{
         AppFilterMode, AppMessageRuleGroup, AppMessageTitleRule, AppTitleRuleMode, ClientConfig,
-        DiscordReportMode,
+        DiscordReportMode, DiscordRichPresenceButtonConfig,
     },
     platform::{ForegroundSnapshot, MediaInfo},
 };
+
+const DISCORD_CUSTOM_LINE_CUSTOM_VALUE: &str = "__custom__";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedActivity {
@@ -15,15 +17,50 @@ pub struct ResolvedActivity {
     pub media_summary: Option<String>,
     pub play_source: Option<String>,
     pub status_text: Option<String>,
+    pub discord_addons: ResolvedDiscordAddons,
     pub discord_details: String,
     pub discord_state: Option<String>,
     pub summary: String,
     pub signature: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct ResolvedDiscordAddons {
+    pub buttons: Vec<DiscordRichPresenceButtonConfig>,
+    pub party: Option<ResolvedDiscordParty>,
+    pub secrets: Option<ResolvedDiscordSecrets>,
+}
+
+impl ResolvedDiscordAddons {
+    pub fn is_empty(&self) -> bool {
+        self.buttons.is_empty() && self.party.is_none() && self.secrets.is_none()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolvedDiscordParty {
+    pub id: Option<String>,
+    pub size: Option<(u32, u32)>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolvedDiscordSecrets {
+    pub join: Option<String>,
+    pub spectate: Option<String>,
+    pub match_secret: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct MessageRuleMatch {
+    status_text: Option<String>,
+    addons: ResolvedDiscordAddons,
+}
+
 pub fn normalize_client_config(config: &mut ClientConfig) {
     config.poll_interval_ms = config.poll_interval_ms.max(1_000);
     config.heartbeat_interval_ms = config.heartbeat_interval_ms.max(0);
+    config.capture_history_record_limit = config.capture_history_record_limit.clamp(1, 50);
+    config.capture_history_title_limit = config.capture_history_title_limit.clamp(1, 50);
     config.runtime_autostart_enabled = config.runtime_autostart_enabled
         || config.legacy_reporter_enabled
         || config.legacy_discord_enabled;
@@ -44,8 +81,93 @@ pub fn normalize_client_config(config: &mut ClientConfig) {
     config.media_play_source_blocklist =
         normalize_string_list(&config.media_play_source_blocklist, true);
     config.app_message_rules = normalize_rule_groups(&config.app_message_rules);
-    config.discord_details_format = normalize_details_format(&config.discord_details_format);
-    config.discord_state_format = config.discord_state_format.trim().to_string();
+    if let Some(value) = config.legacy_discord_status_display.clone() {
+        config.discord_smart_status_display = value.clone();
+        config.discord_app_status_display = value.clone();
+        config.discord_custom_mode_status_display = value.clone();
+        config.discord_music_status_display = value;
+    }
+    if let Some(value) = config.legacy_discord_app_name_mode.clone() {
+        config.discord_smart_app_name_mode = value.clone();
+        config.discord_app_app_name_mode = value.clone();
+        config.discord_custom_mode_app_name_mode = value.clone();
+        config.discord_music_app_name_mode = value;
+    }
+    if let Some(value) = config.legacy_discord_custom_app_name.as_ref() {
+        let trimmed = value.trim().to_string();
+        config.discord_smart_custom_app_name = trimmed.clone();
+        config.discord_app_custom_app_name = trimmed.clone();
+        config.discord_custom_mode_custom_app_name = trimmed.clone();
+        config.discord_music_custom_app_name = trimmed;
+    }
+    config.legacy_discord_status_display = None;
+    config.legacy_discord_app_name_mode = None;
+    config.legacy_discord_custom_app_name = None;
+    config.discord_smart_custom_app_name = config.discord_smart_custom_app_name.trim().to_string();
+    config.discord_music_custom_app_name = config.discord_music_custom_app_name.trim().to_string();
+    config.discord_app_custom_app_name = config.discord_app_custom_app_name.trim().to_string();
+    config.discord_custom_mode_custom_app_name = config
+        .discord_custom_mode_custom_app_name
+        .trim()
+        .to_string();
+    config.discord_custom_buttons = normalize_discord_buttons(&config.discord_custom_buttons);
+    config.discord_custom_party_id = config.discord_custom_party_id.trim().to_string();
+    config.discord_custom_party_size_current =
+        normalize_party_size(config.discord_custom_party_size_current);
+    config.discord_custom_party_size_max =
+        normalize_party_size(config.discord_custom_party_size_max);
+    config.discord_custom_join_secret = config.discord_custom_join_secret.trim().to_string();
+    config.discord_custom_spectate_secret =
+        config.discord_custom_spectate_secret.trim().to_string();
+    config.discord_custom_match_secret = config.discord_custom_match_secret.trim().to_string();
+    config.discord_details_format = normalize_discord_line_format(&config.discord_details_format);
+    config.discord_state_format = normalize_discord_line_format(&config.discord_state_format);
+}
+
+fn requires_process_name_for_filters(config: &ClientConfig) -> bool {
+    matches!(config.app_filter_mode, AppFilterMode::Whitelist)
+        || !config.app_blacklist.is_empty()
+        || !config.app_whitelist.is_empty()
+}
+
+pub fn should_capture_process_name_for_reporting(config: &ClientConfig) -> bool {
+    let filter_capture = requires_process_name_for_filters(config);
+
+    match config.discord_report_mode {
+        DiscordReportMode::Music => filter_capture,
+        _ => {
+            config.report_foreground_app
+                || config.discord_smart_show_app_name
+                || config.app_message_rules_show_process_name
+                || !config.app_message_rules.is_empty()
+                || !config.app_name_only_list.is_empty()
+                || filter_capture
+        }
+    }
+}
+
+pub fn should_capture_window_title_for_reporting(config: &ClientConfig) -> bool {
+    match config.discord_report_mode {
+        DiscordReportMode::Music => false,
+        _ => config.report_window_title,
+    }
+}
+
+pub fn should_capture_media_for_reporting(config: &ClientConfig) -> bool {
+    match config.discord_report_mode {
+        DiscordReportMode::App => false,
+        _ => config.report_media || config.report_play_source,
+    }
+}
+
+pub fn should_capture_foreground_app_icon_for_reporting(config: &ClientConfig) -> bool {
+    config.discord_use_app_artwork && config.discord_report_mode != DiscordReportMode::Music
+}
+
+pub fn should_capture_foreground_snapshot_for_reporting(config: &ClientConfig) -> bool {
+    should_capture_process_name_for_reporting(config)
+        || should_capture_window_title_for_reporting(config)
+        || should_capture_foreground_app_icon_for_reporting(config)
 }
 
 pub fn normalize_string_list(values: &[String], lowercase: bool) -> Vec<String> {
@@ -105,12 +227,15 @@ pub fn resolve_activity(
         None
     };
 
-    let status_text = apply_message_rule(
+    let matched_rule = match_message_rule(
         &process_name,
         process_title_raw.as_deref(),
         process_title_masked.as_deref(),
         &config.app_message_rules,
     );
+    let status_text = matched_rule
+        .as_ref()
+        .and_then(|rule_match| rule_match.status_text.clone());
 
     let display_title = if status_text.is_some() {
         None
@@ -156,6 +281,9 @@ pub fn resolve_activity(
         media_summary,
         play_source,
         status_text,
+        discord_addons: matched_rule
+            .map(|rule_match| rule_match.addons)
+            .unwrap_or_default(),
         discord_details,
         discord_state,
         summary,
@@ -174,6 +302,13 @@ fn normalize_rule_groups(rules: &[AppMessageRuleGroup]) -> Vec<AppMessageRuleGro
 
         let default_text = rule.default_text.trim().to_string();
         let mut title_rules = Vec::new();
+        let buttons = normalize_discord_buttons(&rule.buttons);
+        let party_id = rule.party_id.trim().to_string();
+        let party_size_current = normalize_party_size(rule.party_size_current);
+        let party_size_max = normalize_party_size(rule.party_size_max);
+        let join_secret = rule.join_secret.trim().to_string();
+        let spectate_secret = rule.spectate_secret.trim().to_string();
+        let match_secret = rule.match_secret.trim().to_string();
 
         for title_rule in &rule.title_rules {
             let pattern = title_rule.pattern.trim().to_string();
@@ -188,7 +323,16 @@ fn normalize_rule_groups(rules: &[AppMessageRuleGroup]) -> Vec<AppMessageRuleGro
             });
         }
 
-        if default_text.is_empty() && title_rules.is_empty() {
+        if default_text.is_empty()
+            && title_rules.is_empty()
+            && buttons.is_empty()
+            && party_id.is_empty()
+            && party_size_current.is_none()
+            && party_size_max.is_none()
+            && join_secret.is_empty()
+            && spectate_secret.is_empty()
+            && match_secret.is_empty()
+        {
             continue;
         }
 
@@ -196,10 +340,35 @@ fn normalize_rule_groups(rules: &[AppMessageRuleGroup]) -> Vec<AppMessageRuleGro
             process_match,
             default_text,
             title_rules,
+            buttons,
+            party_id,
+            party_size_current,
+            party_size_max,
+            join_secret,
+            spectate_secret,
+            match_secret,
         });
     }
 
     normalized
+}
+
+fn normalize_discord_buttons(
+    buttons: &[crate::models::DiscordRichPresenceButtonConfig],
+) -> Vec<crate::models::DiscordRichPresenceButtonConfig> {
+    buttons
+        .iter()
+        .map(|button| crate::models::DiscordRichPresenceButtonConfig {
+            label: button.label.trim().to_string(),
+            url: button.url.trim().to_string(),
+        })
+        .filter(|button| !button.label.is_empty() && !button.url.is_empty())
+        .take(2)
+        .collect()
+}
+
+fn normalize_party_size(value: Option<u32>) -> Option<u32> {
+    value.filter(|size| *size > 0)
 }
 
 fn passes_app_filter(config: &ClientConfig, process_name: &str) -> bool {
@@ -239,10 +408,10 @@ fn is_media_source_blocked(config: &ClientConfig, play_source: &str) -> bool {
         .any(|candidate| candidate.trim().eq_ignore_ascii_case(&key))
 }
 
-fn normalize_details_format(value: &str) -> String {
+fn normalize_discord_line_format(value: &str) -> String {
     let trimmed = value.trim();
-    if trimmed.is_empty() {
-        "{activity}".into()
+    if trimmed == DISCORD_CUSTOM_LINE_CUSTOM_VALUE {
+        String::new()
     } else {
         trimmed.to_string()
     }
@@ -281,6 +450,13 @@ fn build_discord_text(
     if config.discord_report_mode != DiscordReportMode::Custom {
         return Some((base_details, base_state));
     }
+    let media_visible = media.is_reportable(config.report_stopped_media) && !media_hidden;
+    let visible_source =
+        if media_visible && config.report_play_source && !media.source_app_id.trim().is_empty() {
+            Some(media.source_app_id.as_str())
+        } else {
+            None
+        };
     let values = DiscordTemplateValues::new(
         &base_details,
         base_state.as_deref(),
@@ -288,21 +464,16 @@ fn build_discord_text(
         process_title,
         status_text,
         media,
-        if media.is_reportable(config.report_stopped_media)
-            && config.report_play_source
-            && !media_hidden
-        {
-            Some(media.source_app_id.as_str())
-        } else {
-            None
-        },
-        media.is_reportable(config.report_stopped_media) && !media_hidden,
+        visible_source,
+        media_visible,
     );
     let state = render_discord_template(&config.discord_state_format, &values)
         .filter(|value| !value.is_empty());
-    let details = render_discord_template(&config.discord_details_format, &values)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(base_details);
+    let details = match render_discord_template(&config.discord_details_format, &values) {
+        Some(value) if !value.is_empty() => value,
+        Some(_) | None if config.discord_details_format.trim().is_empty() => String::new(),
+        _ => base_details,
+    };
 
     Some((details, state))
 }
@@ -624,12 +795,50 @@ fn clean_rendered_text(value: &str) -> String {
         .to_string()
 }
 
-fn apply_message_rule(
+fn resolve_rule_addons(rule: &AppMessageRuleGroup) -> ResolvedDiscordAddons {
+    let buttons = normalize_discord_buttons(&rule.buttons);
+    let party_id = non_empty(rule.party_id.as_str());
+    let party_size = match (
+        normalize_party_size(rule.party_size_current),
+        normalize_party_size(rule.party_size_max),
+    ) {
+        (Some(current), Some(maximum)) if current <= maximum => Some((current, maximum)),
+        _ => None,
+    };
+    let party = if party_id.is_none() && party_size.is_none() {
+        None
+    } else {
+        Some(ResolvedDiscordParty {
+            id: party_id,
+            size: party_size,
+        })
+    };
+    let join = non_empty(rule.join_secret.as_str());
+    let spectate = non_empty(rule.spectate_secret.as_str());
+    let match_secret = non_empty(rule.match_secret.as_str());
+    let secrets = if join.is_none() && spectate.is_none() && match_secret.is_none() {
+        None
+    } else {
+        Some(ResolvedDiscordSecrets {
+            join,
+            spectate,
+            match_secret,
+        })
+    };
+
+    ResolvedDiscordAddons {
+        buttons,
+        party,
+        secrets,
+    }
+}
+
+fn match_message_rule(
     process_name: &str,
     process_title_for_match: Option<&str>,
     process_title_for_template: Option<&str>,
     rules: &[AppMessageRuleGroup],
-) -> Option<String> {
+) -> Option<MessageRuleMatch> {
     let process_lower = process_name.trim().to_lowercase();
     if process_lower.is_empty() {
         return None;
@@ -640,27 +849,44 @@ fn apply_message_rule(
         if matcher.is_empty() || !process_lower.contains(&matcher) {
             continue;
         }
+        let addons = resolve_rule_addons(rule);
 
         for title_rule in &rule.title_rules {
             if !matches_title_rule(process_title_for_match, title_rule) {
                 continue;
             }
-            return Some(render_rule_text(
-                &title_rule.text,
-                process_name,
-                process_title_for_template,
-            ));
+            return Some(MessageRuleMatch {
+                status_text: Some(render_rule_text(
+                    &title_rule.text,
+                    process_name,
+                    process_title_for_template,
+                )),
+                addons,
+            });
         }
 
         let template = rule.default_text.trim();
+        if !template.is_empty() {
+            return Some(MessageRuleMatch {
+                status_text: Some(render_rule_text(
+                    template,
+                    process_name,
+                    process_title_for_template,
+                )),
+                addons,
+            });
+        }
+
+        if rule.title_rules.is_empty() && !addons.is_empty() {
+            return Some(MessageRuleMatch {
+                status_text: None,
+                addons,
+            });
+        }
+
         if template.is_empty() {
             continue;
         }
-        return Some(render_rule_text(
-            template,
-            process_name,
-            process_title_for_template,
-        ));
     }
 
     None
@@ -821,6 +1047,83 @@ mod tests {
         let resolved = build_music_discord_text(&config, &media, false);
 
         assert_eq!(resolved, None);
+    }
+
+    #[test]
+    fn app_mode_does_not_capture_media_for_reporting() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::App,
+            report_media: true,
+            report_play_source: true,
+            ..ClientConfig::default()
+        };
+
+        assert!(!should_capture_media_for_reporting(&config));
+    }
+
+    #[test]
+    fn music_mode_does_not_capture_window_title_for_reporting() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            report_window_title: true,
+            ..ClientConfig::default()
+        };
+
+        assert!(!should_capture_window_title_for_reporting(&config));
+    }
+
+    #[test]
+    fn music_mode_skips_process_name_without_filters() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            report_foreground_app: true,
+            ..ClientConfig::default()
+        };
+
+        assert!(!should_capture_process_name_for_reporting(&config));
+    }
+
+    #[test]
+    fn music_mode_keeps_process_name_for_app_filters() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            app_whitelist: vec!["spotify.exe".into()],
+            ..ClientConfig::default()
+        };
+
+        assert!(should_capture_process_name_for_reporting(&config));
+    }
+
+    #[test]
+    fn music_mode_does_not_capture_foreground_app_icon() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            discord_use_app_artwork: true,
+            ..ClientConfig::default()
+        };
+
+        assert!(!should_capture_foreground_app_icon_for_reporting(&config));
+    }
+
+    #[test]
+    fn music_mode_can_skip_foreground_snapshot_when_unneeded() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            ..ClientConfig::default()
+        };
+
+        assert!(!should_capture_foreground_snapshot_for_reporting(&config));
+    }
+
+    #[test]
+    fn app_mode_still_captures_foreground_snapshot() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::App,
+            report_window_title: true,
+            ..ClientConfig::default()
+        };
+
+        assert!(should_capture_foreground_snapshot_for_reporting(&config));
     }
 
     #[test]
@@ -1014,5 +1317,74 @@ mod tests {
 
         assert_eq!(resolved.0, "Coding".to_string());
         assert_eq!(resolved.1, Some("Code.exe".to_string()));
+    }
+
+    #[test]
+    fn custom_mode_applies_global_details_and_state_templates() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Custom,
+            discord_details_format: "{app} :: {activity}".into(),
+            discord_state_format: "Line 3: {context}".into(),
+            ..ClientConfig::default()
+        };
+
+        let resolved = build_discord_text(
+            &config,
+            "Code.exe",
+            Some("repo"),
+            &MediaInfo::default(),
+            false,
+            None,
+        )
+        .expect("activity");
+
+        assert_eq!(resolved.0, "Code.exe :: repo".to_string());
+        assert_eq!(resolved.1, Some("Line 3: Code.exe".to_string()));
+    }
+
+    #[test]
+    fn custom_mode_can_hide_details_line() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Custom,
+            discord_details_format: String::new(),
+            discord_state_format: "{context}".into(),
+            ..ClientConfig::default()
+        };
+
+        let resolved = build_discord_text(
+            &config,
+            "Code.exe",
+            Some("repo"),
+            &MediaInfo::default(),
+            false,
+            None,
+        )
+        .expect("activity");
+
+        assert_eq!(resolved.0, String::new());
+        assert_eq!(resolved.1, Some("Code.exe".to_string()));
+    }
+
+    #[test]
+    fn custom_mode_can_use_literal_custom_text() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Custom,
+            discord_details_format: "Coding in {app}".into(),
+            discord_state_format: "Working on {title}".into(),
+            ..ClientConfig::default()
+        };
+
+        let resolved = build_discord_text(
+            &config,
+            "Code.exe",
+            Some("repo"),
+            &MediaInfo::default(),
+            false,
+            None,
+        )
+        .expect("activity");
+
+        assert_eq!(resolved.0, "Coding in Code.exe".to_string());
+        assert_eq!(resolved.1, Some("Working on repo".to_string()));
     }
 }

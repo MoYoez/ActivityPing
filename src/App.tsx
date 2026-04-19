@@ -30,10 +30,14 @@ import type {
   AppStatePayload,
   ClientCapabilities,
   ClientConfig,
+  DiscordAppNameMode,
+  DiscordRichPresenceButtonConfig,
+  DiscordCustomPreset,
   DiscordActivityType,
   DiscordDebugPayload,
   DiscordPresenceSnapshot,
   DiscordReportMode,
+  DiscordStatusDisplay,
   PlatformProbeResult,
   PlatformSelfTestResult,
   PlaySourceHistoryEntry,
@@ -66,33 +70,32 @@ const SUBRULE_CARD_CLASS = "card border border-base-300 bg-base-100 shadow-sm";
 const GITHUB_URL = "https://github.com/MoYoez/ActivityPing";
 const MAX_RUNTIME_LOGS = 20;
 const RUNTIME_LOG_PAGE_SIZE = 6;
-const MAX_HISTORY_RECORDS = 3;
+const DEFAULT_HISTORY_RECORD_LIMIT = 3;
+const DEFAULT_HISTORY_TITLE_LIMIT = 5;
+const MIN_HISTORY_LIMIT = 1;
+const MAX_HISTORY_LIMIT = 50;
 const RULE_GROUP_PAGE_SIZE = 6;
 const TITLE_RULE_PAGE_SIZE = 3;
-const DISCORD_TEMPLATE_TOKENS = [
-  "{activity}",
-  "{context}",
-  "{app}",
-  "{title}",
-  "{rule}",
-  "{media}",
-  "{song}",
-  "{artist}",
-  "{album}",
-  "{source}",
+const CUSTOM_PRESET_PAGE_SIZE = 5;
+const DISCORD_CUSTOM_LINE_CUSTOM_VALUE = "__custom__";
+const DISCORD_CUSTOM_LINE_OPTIONS = [
+  { value: "", label: "Hidden", helper: "Do not send this line." },
+  { value: "{activity}", label: "Current activity", helper: "Use the current activity text after rules are applied." },
+  { value: "{context}", label: "Current context", helper: "Use the current secondary context chosen by the active mode." },
+  { value: "{app}", label: "App name", helper: "Use the captured process or app name." },
+  { value: "{title}", label: "Window title", helper: "Use the current window title when available." },
+  { value: "{rule}", label: "Matched rule", helper: "Use the matched rule text when a rule hit exists." },
+  { value: "{media}", label: "Music summary", helper: "Use song, artist, and album together when music is active." },
+  { value: "{song}", label: "Song name", helper: "Use the current song or media title." },
+  { value: "{artist}", label: "Artist", helper: "Use the current artist." },
+  { value: "{album}", label: "Album", helper: "Use the current album name." },
+  { value: "{source}", label: "Source app", helper: "Use the current playback source app." },
+  {
+    value: DISCORD_CUSTOM_LINE_CUSTOM_VALUE,
+    label: "Custom text",
+    helper: "Type your own text. Template tokens like {app}, {song}, and {artist} still work.",
+  },
 ] as const;
-const DISCORD_TEMPLATE_TOKEN_HINTS: Record<(typeof DISCORD_TEMPLATE_TOKENS)[number], string> = {
-  "{activity}": "The main activity text after the current mode and matching rules are applied.",
-  "{context}": "The secondary line for the current activity, usually the app name or artist.",
-  "{app}": "The captured app or process name.",
-  "{title}": "The current window title.",
-  "{rule}": "The text produced by the matched rule, when a rule hit exists.",
-  "{media}": "A combined media summary, such as song, artist, and album when media is active.",
-  "{song}": "The current media title or song name.",
-  "{artist}": "The current media artist.",
-  "{album}": "The current media album.",
-  "{source}": "The active media source app id when source reporting is enabled.",
-};
 const DISCORD_REPORT_MODE_OPTIONS: Array<{
   mode: DiscordReportMode;
   title: string;
@@ -103,30 +106,30 @@ const DISCORD_REPORT_MODE_OPTIONS: Array<{
   {
     mode: "mixed",
     title: "Smart",
-    description: "Keep the current title on the first line, the app name on the second line, and reserve artwork and timer space for active media.",
-    details: "Window title or rule text",
-    state: "App name",
+    description: "Use the matched title on line 1, optionally keep the foreground app on line 2, and move visible music to line 3.",
+    details: "Foreground app",
+    state: "Music line",
   },
   {
     mode: "music",
     title: "Music",
-    description: "Always format the activity around now-playing metadata.",
+    description: "Use a music-first layout similar to inflink-rs when playback is active.",
     details: "Song / media title",
     state: "Artist",
   },
   {
     mode: "app",
     title: "App",
-    description: "Keep the activity centered on the current app, title, or matched rule text.",
-    details: "Rule text or window title",
-    state: "App name",
+    description: "Use the matched title on line 1 and the foreground app on line 2 when app reporting is enabled.",
+    details: "Foreground app",
+    state: "Hidden",
   },
   {
     mode: "custom",
     title: "Custom",
-    description: "Edit the Discord lines directly and choose the Discord activity label.",
-    details: "Custom template",
-    state: "Custom template",
+    description: "Edit the default Discord lines directly, then keep reusable Custom presets for quick import.",
+    details: "Preset or default template",
+    state: "Preset or default template",
   },
 ];
 const DISCORD_ACTIVITY_TYPE_OPTIONS: Array<{
@@ -139,6 +142,36 @@ const DISCORD_ACTIVITY_TYPE_OPTIONS: Array<{
   { value: "watching", label: "Watching", helper: "Discord shows a watching-style label." },
   { value: "competing", label: "Competing", helper: "Discord shows a competing-style label." },
 ];
+const DISCORD_STATUS_DISPLAY_OPTIONS: Array<{
+  value: DiscordStatusDisplay;
+  label: string;
+  helper: string;
+}> = [
+  { value: "name", label: "Application name", helper: "Use the activity name for Discord's compact member-list status text." },
+  { value: "state", label: "State line", helper: "Use the state field for Discord's compact member-list status text." },
+  { value: "details", label: "Details line", helper: "Use the details field for Discord's compact member-list status text." },
+];
+const DISCORD_APP_NAME_OPTIONS: Array<{
+  value: DiscordAppNameMode;
+  label: string;
+  helper: string;
+}> = [
+  { value: "default", label: "Application name", helper: "Keep Discord's application name. Smart and App mode still use the matched title first when an app is active." },
+  { value: "song", label: "Song name", helper: "Use the current track title when the activity falls back to music-first output." },
+  { value: "artist", label: "Artist", helper: "Use the current artist when the activity falls back to music-first output." },
+  { value: "album", label: "Album", helper: "Use the current album when the activity falls back to music-first output." },
+  { value: "custom", label: "Custom text", helper: "Type a custom application name for the first line." },
+];
+const DISCORD_TEMPLATE_TOKENS = [
+  "{app}",
+  "{title}",
+  "{rule}",
+  "{media}",
+  "{song}",
+  "{artist}",
+  "{album}",
+  "{source}",
+] as const;
 const VIEW_MOTION = {
   initial: { opacity: 0, y: 10 },
   animate: { opacity: 1, y: 0 },
@@ -376,6 +409,19 @@ function discordReportModeText(config: ClientConfig) {
   }
 }
 
+function discordReportModeName(mode: DiscordReportMode) {
+  switch (mode) {
+    case "music":
+      return "Music";
+    case "app":
+      return "App";
+    case "custom":
+      return "Custom";
+    default:
+      return "Smart";
+  }
+}
+
 function discordActivityTypeText(value: DiscordActivityType) {
   switch (value) {
     case "listening":
@@ -386,6 +432,19 @@ function discordActivityTypeText(value: DiscordActivityType) {
       return "Competing";
     default:
       return "Playing";
+  }
+}
+
+function localWorkingModeText(config: ClientConfig) {
+  switch (config.discordReportMode) {
+    case "music":
+      return "Music mode";
+    case "app":
+      return "App mode";
+    case "custom":
+      return `Custom Discord Text · ${discordActivityTypeText(config.discordActivityType)}`;
+    default:
+      return "Smart mode";
   }
 }
 
@@ -407,12 +466,51 @@ function compactOptionalText(value?: string | null) {
   return trimmed || null;
 }
 
-function normalizeAppHistory(values: unknown): AppHistoryEntry[] {
+function clampHistoryLimit(value: unknown, fallback: number) {
+  const parsed = Math.floor(Number(value));
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(MAX_HISTORY_LIMIT, Math.max(MIN_HISTORY_LIMIT, parsed));
+}
+
+function normalizeTitleHistory(values: unknown, fallback?: string | null, limit = DEFAULT_HISTORY_TITLE_LIMIT) {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  const candidates = [
+    ...(Array.isArray(values) ? values : []),
+    fallback,
+  ];
+
+  for (const value of candidates) {
+    const trimmed = String(value ?? "").trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    result.push(trimmed);
+    if (result.length >= limit) break;
+  }
+
+  return result;
+}
+
+function sameStringList(left: string[] = [], right: string[] = []) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function mergeTitleHistory(existing: AppHistoryEntry | undefined, rawTitle: string | null, limit: number) {
+  const currentTitles = normalizeTitleHistory(existing?.processTitles, existing?.processTitle, limit);
+  if (!rawTitle) return currentTitles.slice(0, limit);
+  return normalizeTitleHistory([rawTitle, ...currentTitles], null, limit);
+}
+
+function normalizeAppHistory(
+  values: unknown,
+  recordLimit = DEFAULT_HISTORY_RECORD_LIMIT,
+  titleLimit = DEFAULT_HISTORY_TITLE_LIMIT,
+): AppHistoryEntry[] {
   if (!Array.isArray(values)) return [];
   return values
     .map((value): AppHistoryEntry | null => {
       if (typeof value === "string") {
-        return { processName: value.trim(), processTitle: null, statusText: null, updatedAt: null };
+        return { processName: value.trim(), processTitle: null, processTitles: [], statusText: null, updatedAt: null };
       }
       if (!value || typeof value !== "object") {
         return null;
@@ -421,15 +519,19 @@ function normalizeAppHistory(values: unknown): AppHistoryEntry[] {
       return {
         processName: String(record.processName ?? "").trim(),
         processTitle: compactOptionalText(record.processTitle),
+        processTitles: normalizeTitleHistory(record.processTitles, record.processTitle, titleLimit),
         statusText: compactOptionalText(record.statusText),
         updatedAt: compactOptionalText(record.updatedAt),
       };
     })
     .filter((value): value is AppHistoryEntry => Boolean(value?.processName))
-    .slice(0, MAX_HISTORY_RECORDS);
+    .slice(0, recordLimit);
 }
 
-function normalizePlaySourceHistory(values: unknown): PlaySourceHistoryEntry[] {
+function normalizePlaySourceHistory(
+  values: unknown,
+  recordLimit = DEFAULT_HISTORY_RECORD_LIMIT,
+): PlaySourceHistoryEntry[] {
   if (!Array.isArray(values)) return [];
   return values
     .map((value): PlaySourceHistoryEntry | null => {
@@ -457,7 +559,7 @@ function normalizePlaySourceHistory(values: unknown): PlaySourceHistoryEntry[] {
       };
     })
     .filter((value): value is PlaySourceHistoryEntry => Boolean(value?.source))
-    .slice(0, MAX_HISTORY_RECORDS);
+    .slice(0, recordLimit);
 }
 
 function uniqueHistoryValues(values: string[]) {
@@ -478,6 +580,7 @@ function sameAppHistoryContent(left: AppHistoryEntry, right: AppHistoryEntry) {
   return (
     left.processName.trim().toLowerCase() === right.processName.trim().toLowerCase() &&
     sameOptionalValue(left.processTitle, right.processTitle) &&
+    sameStringList(left.processTitles, right.processTitles) &&
     sameOptionalValue(left.statusText, right.statusText)
   );
 }
@@ -497,23 +600,35 @@ function shouldCaptureHistoryActivity(activity?: ReporterActivity | null) {
   return Boolean(processName && processName !== "activityping.exe");
 }
 
-function mergeAppHistory(values: AppHistoryEntry[], activity?: ReporterActivity | null) {
+function mergeAppHistory(
+  values: AppHistoryEntry[],
+  activity: ReporterActivity | null | undefined,
+  recordLimit: number,
+  titleLimit: number,
+) {
   const processName = activity?.processName?.trim() ?? "";
   if (!processName) return values;
+  const key = processName.toLowerCase();
+  const existingEntry = values.find((item) => item.processName.trim().toLowerCase() === key);
+  const rawTitle = compactOptionalText(activity?.rawProcessTitle) ?? compactOptionalText(activity?.processTitle);
   const entry: AppHistoryEntry = {
     processName,
     processTitle: compactOptionalText(activity?.processTitle),
+    processTitles: mergeTitleHistory(existingEntry, rawTitle, titleLimit),
     statusText: compactOptionalText(activity?.statusText),
     updatedAt: activity?.updatedAt ?? new Date().toISOString(),
   };
-  const key = processName.toLowerCase();
   if (values[0] && sameAppHistoryContent(values[0], entry)) {
     return values;
   }
-  return [entry, ...values.filter((item) => item.processName.trim().toLowerCase() !== key)].slice(0, MAX_HISTORY_RECORDS);
+  return [entry, ...values.filter((item) => item.processName.trim().toLowerCase() !== key)].slice(0, recordLimit);
 }
 
-function mergePlaySourceHistory(values: PlaySourceHistoryEntry[], activity?: ReporterActivity | null) {
+function mergePlaySourceHistory(
+  values: PlaySourceHistoryEntry[],
+  activity: ReporterActivity | null | undefined,
+  recordLimit: number,
+) {
   const source = activity?.playSource?.trim().toLowerCase() ?? "";
   if (!source) return values;
   const entry: PlaySourceHistoryEntry = {
@@ -527,11 +642,15 @@ function mergePlaySourceHistory(values: PlaySourceHistoryEntry[], activity?: Rep
   if (values[0] && samePlaySourceHistoryContent(values[0], entry)) {
     return values;
   }
-  return [entry, ...values.filter((item) => item.source.trim().toLowerCase() !== source)].slice(0, MAX_HISTORY_RECORDS);
+  return [entry, ...values.filter((item) => item.source.trim().toLowerCase() !== source)].slice(0, recordLimit);
 }
 
 function appHistoryDisplayTitle(entry: AppHistoryEntry) {
   return entry.statusText?.trim() || entry.processTitle?.trim() || "No title captured";
+}
+
+function appHistoryRawTitles(entry: AppHistoryEntry) {
+  return normalizeTitleHistory(entry.processTitles, entry.processTitle, MAX_HISTORY_LIMIT);
 }
 
 function playSourceHistoryDisplayTitle(entry: PlaySourceHistoryEntry) {
@@ -560,8 +679,299 @@ function moveItem<T>(items: T[], from: number, to: number) {
   return next;
 }
 
-function validateRuleRegex(groups: AppMessageRuleGroup[]) {
-  for (const group of groups) {
+function createDiscordButton(): DiscordRichPresenceButtonConfig {
+  return { label: "", url: "" };
+}
+
+function createAppMessageRuleGroup(): AppMessageRuleGroup {
+  return {
+    processMatch: "",
+    defaultText: "",
+    titleRules: [],
+    buttons: [],
+    partyId: "",
+    partySizeCurrent: null,
+    partySizeMax: null,
+    joinSecret: "",
+    spectateSecret: "",
+    matchSecret: "",
+  };
+}
+
+function appendDiscordTemplateToken(currentValue: string, token: string) {
+  const trimmed = String(currentValue ?? "").trim();
+  return trimmed ? `${trimmed} ${token}` : token;
+}
+
+function DiscordTemplateTokenRow({
+  onInsert,
+}: {
+  onInsert: (token: string) => void;
+}) {
+  return (
+    <div className="discord-template-token-row">
+      <span>Quick insert</span>
+      {DISCORD_TEMPLATE_TOKENS.map((token) => (
+        <button
+          key={token}
+          className="btn btn-ghost btn-xs no-animation"
+          type="button"
+          onClick={() => onInsert(token)}
+        >
+          {token}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DiscordOptionHelp({
+  idPrefix,
+  includeSmartModeNote = true,
+}: {
+  idPrefix: string;
+  includeSmartModeNote?: boolean;
+}) {
+  const helpEntries = [
+    ...DISCORD_CUSTOM_LINE_OPTIONS.map((option) => ({
+      key: `${idPrefix}-line-${option.value || "hidden"}`,
+      label: option.label,
+      helper: option.helper,
+    })),
+    ...DISCORD_STATUS_DISPLAY_OPTIONS.map((option) => ({
+      key: `${idPrefix}-status-${option.value}`,
+      label: option.label,
+      helper: option.helper,
+    })),
+    ...DISCORD_APP_NAME_OPTIONS.map((option) => ({
+      key: `${idPrefix}-app-name-${option.value}`,
+      label: option.label,
+      helper: option.helper,
+    })),
+    ...(includeSmartModeNote
+      ? [
+          {
+            key: `${idPrefix}-smart-mode`,
+            label: "Smart mode",
+            helper: "line 1 follows the matched title, line 2 can show the foreground app, and line 3 carries music when playback is active.",
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <details className="dropdown dropdown-end discord-option-help">
+      <summary className="discord-option-help-trigger" aria-label="Show Discord option help">
+        ?
+      </summary>
+      <div className="discord-option-help-panel dropdown-content z-[20] w-[min(38rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/70 shadow-xl">
+        <div className="discord-option-help-grid">
+          {helpEntries.map((entry) => (
+            <p key={entry.key}>
+              <strong>{entry.label}:</strong> {entry.helper}
+            </p>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function discordModeStatusDisplay(config: ClientConfig, mode: DiscordReportMode) {
+  switch (mode) {
+    case "music":
+      return config.discordMusicStatusDisplay;
+    case "app":
+      return config.discordAppStatusDisplay;
+    case "custom":
+      return config.discordCustomModeStatusDisplay;
+    default:
+      return config.discordSmartStatusDisplay;
+  }
+}
+
+function discordModeAppNameMode(config: ClientConfig, mode: DiscordReportMode) {
+  switch (mode) {
+    case "music":
+      return config.discordMusicAppNameMode;
+    case "app":
+      return config.discordAppAppNameMode;
+    case "custom":
+      return config.discordCustomModeAppNameMode;
+    default:
+      return config.discordSmartAppNameMode;
+  }
+}
+
+function discordModeCustomAppName(config: ClientConfig, mode: DiscordReportMode) {
+  switch (mode) {
+    case "music":
+      return config.discordMusicCustomAppName;
+    case "app":
+      return config.discordAppCustomAppName;
+    case "custom":
+      return config.discordCustomModeCustomAppName;
+    default:
+      return config.discordSmartCustomAppName;
+  }
+}
+
+function patchDiscordModeSettings(
+  config: ClientConfig,
+  mode: DiscordReportMode,
+  patch: {
+    statusDisplay?: DiscordStatusDisplay;
+    appNameMode?: DiscordAppNameMode;
+    customAppName?: string;
+  },
+): ClientConfig {
+  switch (mode) {
+    case "music":
+      return {
+        ...config,
+        ...(patch.statusDisplay ? { discordMusicStatusDisplay: patch.statusDisplay } : {}),
+        ...(patch.appNameMode ? { discordMusicAppNameMode: patch.appNameMode } : {}),
+        ...(patch.customAppName !== undefined ? { discordMusicCustomAppName: patch.customAppName } : {}),
+      };
+    case "app":
+      return {
+        ...config,
+        ...(patch.statusDisplay ? { discordAppStatusDisplay: patch.statusDisplay } : {}),
+        ...(patch.appNameMode ? { discordAppAppNameMode: patch.appNameMode } : {}),
+        ...(patch.customAppName !== undefined ? { discordAppCustomAppName: patch.customAppName } : {}),
+      };
+    case "custom":
+      return {
+        ...config,
+        ...(patch.statusDisplay ? { discordCustomModeStatusDisplay: patch.statusDisplay } : {}),
+        ...(patch.appNameMode ? { discordCustomModeAppNameMode: patch.appNameMode } : {}),
+        ...(patch.customAppName !== undefined ? { discordCustomModeCustomAppName: patch.customAppName } : {}),
+      };
+    default:
+      return {
+        ...config,
+        ...(patch.statusDisplay ? { discordSmartStatusDisplay: patch.statusDisplay } : {}),
+        ...(patch.appNameMode ? { discordSmartAppNameMode: patch.appNameMode } : {}),
+        ...(patch.customAppName !== undefined ? { discordSmartCustomAppName: patch.customAppName } : {}),
+      };
+  }
+}
+
+function discordLineOptionLabel(value: string) {
+  const normalizedValue = normalizeDiscordLineTemplate(value);
+  if (!normalizedValue) {
+    return "Hidden";
+  }
+  const matched = DISCORD_CUSTOM_LINE_OPTIONS.find(
+    (option) => option.value === normalizedValue && option.value !== DISCORD_CUSTOM_LINE_CUSTOM_VALUE,
+  )?.label;
+  return matched ?? "Custom text";
+}
+
+function normalizeDiscordLineTemplate(value: unknown) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed === DISCORD_CUSTOM_LINE_CUSTOM_VALUE ? "" : trimmed;
+}
+
+function isDiscordBuiltinLineChoice(value: string) {
+  return DISCORD_CUSTOM_LINE_OPTIONS.some(
+    (option) => option.value === value && option.value !== DISCORD_CUSTOM_LINE_CUSTOM_VALUE,
+  );
+}
+
+function resolveDiscordLineChoice(value: string, forceCustom = false) {
+  if (forceCustom) {
+    return DISCORD_CUSTOM_LINE_CUSTOM_VALUE;
+  }
+  const rawValue = String(value ?? "").trim();
+  if (rawValue === DISCORD_CUSTOM_LINE_CUSTOM_VALUE) {
+    return DISCORD_CUSTOM_LINE_CUSTOM_VALUE;
+  }
+
+  const normalizedValue = normalizeDiscordLineTemplate(value);
+  if (!normalizedValue) {
+    return "";
+  }
+
+  return isDiscordBuiltinLineChoice(normalizedValue)
+    ? normalizedValue
+    : DISCORD_CUSTOM_LINE_CUSTOM_VALUE;
+}
+
+function discordLineCustomTextValue(value: string) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue || rawValue === DISCORD_CUSTOM_LINE_CUSTOM_VALUE) {
+    return "";
+  }
+  return isDiscordBuiltinLineChoice(rawValue) ? "" : rawValue;
+}
+
+function nextDiscordLineValue(currentValue: string, nextChoice: string) {
+  if (nextChoice !== DISCORD_CUSTOM_LINE_CUSTOM_VALUE) {
+    return nextChoice;
+  }
+
+  const currentCustomValue = discordLineCustomTextValue(currentValue);
+  return currentCustomValue || DISCORD_CUSTOM_LINE_CUSTOM_VALUE;
+}
+
+function createDiscordCustomPreset(): DiscordCustomPreset {
+  return {
+    name: "",
+    activityType: "playing",
+    statusDisplay: "name",
+    appNameMode: "default",
+    customAppName: "",
+    detailsFormat: "{activity}",
+    stateFormat: "{context}",
+    buttons: [],
+    partyId: "",
+    partySizeCurrent: null,
+    partySizeMax: null,
+    joinSecret: "",
+    spectateSecret: "",
+    matchSecret: "",
+  };
+}
+
+function createDiscordCustomPresetFromConfig(config: ClientConfig): DiscordCustomPreset {
+  return {
+    name: "",
+    activityType: config.discordActivityType,
+    statusDisplay: config.discordCustomModeStatusDisplay,
+    appNameMode: config.discordCustomModeAppNameMode,
+    customAppName: config.discordCustomModeCustomAppName,
+    detailsFormat: normalizeDiscordLineTemplate(config.discordDetailsFormat),
+    stateFormat: normalizeDiscordLineTemplate(config.discordStateFormat),
+    buttons: config.discordCustomButtons.map((button) => ({ ...button })),
+    partyId: config.discordCustomPartyId,
+    partySizeCurrent: config.discordCustomPartySizeCurrent ?? null,
+    partySizeMax: config.discordCustomPartySizeMax ?? null,
+    joinSecret: config.discordCustomJoinSecret,
+    spectateSecret: config.discordCustomSpectateSecret,
+    matchSecret: config.discordCustomMatchSecret,
+  };
+}
+
+function summarizeDiscordCustomPreset(preset: DiscordCustomPreset) {
+  const extras = [];
+  if (preset.buttons.length > 0) extras.push(`${preset.buttons.length} button${preset.buttons.length === 1 ? "" : "s"}`);
+  if (preset.partyId.trim() || preset.partySizeCurrent || preset.partySizeMax) extras.push("party");
+  if (preset.joinSecret.trim() || preset.spectateSecret.trim() || preset.matchSecret.trim()) extras.push("secrets");
+  const extraText = extras.length > 0 ? ` · ${extras.join(" · ")}` : "";
+  return `${discordActivityTypeText(preset.activityType)} · ${DISCORD_STATUS_DISPLAY_OPTIONS.find((option) => option.value === preset.statusDisplay)?.label ?? "Application name"} · ${discordLineOptionLabel(preset.detailsFormat.trim())} / ${discordLineOptionLabel(preset.stateFormat.trim())}${extraText}`;
+}
+
+function normalizePositiveNumberInput(value: string) {
+  const parsed = Math.floor(Number(value));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function validateRuleRegex(config: ClientConfig) {
+  for (const group of config.appMessageRules) {
     for (const titleRule of group.titleRules) {
       if (titleRule.mode !== "regex") continue;
       try {
@@ -574,8 +984,27 @@ function validateRuleRegex(groups: AppMessageRuleGroup[]) {
   return null;
 }
 
+function validateArtworkPublishing(config: ClientConfig) {
+  if (
+    (config.discordUseAppArtwork || config.discordUseMusicArtwork) &&
+    !config.discordArtworkWorkerUploadUrl.trim()
+  ) {
+    return "Use app artwork or Use music artwork requires an uploader service URL in Artwork publishing.";
+  }
+  return null;
+}
+
 function buildPayload(baseState: AppStatePayload, config: ClientConfig): AppStatePayload {
-  return { ...baseState, config: normalizeClientConfig(config), locale: "en-US" };
+  const normalizedConfig = normalizeClientConfig(config);
+  const historyRecordLimit = clampHistoryLimit(normalizedConfig.captureHistoryRecordLimit, DEFAULT_HISTORY_RECORD_LIMIT);
+  const historyTitleLimit = clampHistoryLimit(normalizedConfig.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
+  return {
+    ...baseState,
+    config: normalizedConfig,
+    appHistory: normalizeAppHistory(baseState.appHistory, historyRecordLimit, historyTitleLimit),
+    playSourceHistory: normalizePlaySourceHistory(baseState.playSourceHistory, historyRecordLimit),
+    locale: "en-US",
+  };
 }
 
 function App() {
@@ -601,8 +1030,14 @@ function App() {
   const [whitelistInput, setWhitelistInput] = useState("");
   const [nameOnlyInput, setNameOnlyInput] = useState("");
   const [mediaSourceInput, setMediaSourceInput] = useState("");
-  const [activeDiscordFormatField, setActiveDiscordFormatField] = useState<"details" | "state">("details");
   const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
+  const [customRulesDialogOpen, setCustomRulesDialogOpen] = useState(false);
+  const [customPresetPage, setCustomPresetPage] = useState(0);
+  const [activeCustomPresetIndex, setActiveCustomPresetIndex] = useState<number | null>(null);
+  const [discordDetailsForceCustomChoice, setDiscordDetailsForceCustomChoice] = useState(false);
+  const [discordStateForceCustomChoice, setDiscordStateForceCustomChoice] = useState(false);
+  const [presetDetailsForceCustomChoice, setPresetDetailsForceCustomChoice] = useState(false);
+  const [presetStateForceCustomChoice, setPresetStateForceCustomChoice] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const [appliedRuntimeConfigSignature, setAppliedRuntimeConfigSignature] = useState<string | null>(null);
   const [ruleGroupPage, setRuleGroupPage] = useState(0);
@@ -610,8 +1045,6 @@ function App() {
   const [runtimeLogPage, setRuntimeLogPage] = useState(0);
   const [jsonViewer, setJsonViewer] = useState<JsonViewerState | null>(null);
   const runtimeAutostartAttemptedRef = useRef(false);
-  const discordDetailsInputRef = useRef<HTMLInputElement | null>(null);
-  const discordStateInputRef = useRef<HTMLInputElement | null>(null);
 
   function notify(tone: NoticeTone, title: string, detail: string) {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -678,9 +1111,15 @@ function App() {
 
   async function saveProfile(successTitle: string, successDetail: string) {
     const normalized = normalizeClientConfig(config);
-    const regexError = validateRuleRegex(normalized.appMessageRules);
+    const regexError = validateRuleRegex(normalized);
     if (regexError) {
       notify("error", "Rules not saved", regexError);
+      return;
+    }
+    const artworkPublishingError = validateArtworkPublishing(normalized);
+    if (artworkPublishingError) {
+      setActiveSection("settings");
+      notify("warn", "Artwork publishing required", artworkPublishingError);
       return;
     }
     try {
@@ -703,28 +1142,6 @@ function App() {
     setRulesImportOpen(false);
     setRulesImportValue("");
     notify("info", "Draft reverted", "The current form was reset to the last saved settings.");
-  }
-
-  function insertDiscordToken(token: string) {
-    const targetField = activeDiscordFormatField;
-    const input = targetField === "state" ? discordStateInputRef.current : discordDetailsInputRef.current;
-    const currentValue = targetField === "state" ? config.discordStateFormat : config.discordDetailsFormat;
-    const selectionStart = input?.selectionStart ?? currentValue.length;
-    const selectionEnd = input?.selectionEnd ?? currentValue.length;
-    const nextValue = `${currentValue.slice(0, selectionStart)}${token}${currentValue.slice(selectionEnd)}`;
-    const nextCursor = selectionStart + token.length;
-
-    if (targetField === "state") {
-      update("discordStateFormat", nextValue);
-    } else {
-      update("discordDetailsFormat", nextValue);
-    }
-
-    window.requestAnimationFrame(() => {
-      const targetInput = targetField === "state" ? discordStateInputRef.current : discordDetailsInputRef.current;
-      targetInput?.focus();
-      targetInput?.setSelectionRange(nextCursor, nextCursor);
-    });
   }
 
   async function startRuntimeSession() {
@@ -795,6 +1212,62 @@ function App() {
     notify("info", "Runtime stopped", "Local capture and Discord RPC have been stopped.");
   }
 
+  async function restartRuntimeSession() {
+    if (!runtimeReady) {
+      notify("warn", "Runtime locked", runtimeBlockReason || "Save the RPC settings first.");
+      return;
+    }
+
+    const normalized = normalizeClientConfig(config);
+    const failures: string[] = [];
+
+    if (reporterSnapshot.running) {
+      const reporterResult = await stopRealtimeReporter();
+      if (!reporterResult.success || !reporterResult.data) {
+        failures.push(resolveApiError(reporterResult, "The local monitor could not be stopped."));
+      } else {
+        setReporterSnapshot(limitReporterSnapshotLogs(reporterResult.data));
+      }
+    }
+
+    if (discordSnapshot.running) {
+      const discordResult = await stopDiscordPresenceSync();
+      if (!discordResult.success || !discordResult.data) {
+        failures.push(resolveApiError(discordResult, "Discord RPC could not be stopped."));
+      } else {
+        setDiscordSnapshot(discordResult.data);
+      }
+    }
+
+    if (failures.length > 0) {
+      notify("warn", "Runtime restart blocked", failures[0]);
+      return;
+    }
+
+    const discordResult = await startDiscordPresenceSync(normalized);
+    if (!discordResult.success || !discordResult.data) {
+      setAppliedRuntimeConfigSignature(null);
+      notify("error", "Runtime restart failed", resolveApiError(discordResult, "Discord RPC could not be started."));
+      return;
+    }
+    setDiscordSnapshot(discordResult.data);
+
+    const reporterResult = await startRealtimeReporter(normalized);
+    if (!reporterResult.success || !reporterResult.data) {
+      const rollbackResult = await stopDiscordPresenceSync();
+      if (rollbackResult.success && rollbackResult.data) {
+        setDiscordSnapshot(rollbackResult.data);
+      }
+      setAppliedRuntimeConfigSignature(null);
+      notify("error", "Runtime restart failed", resolveApiError(reporterResult, "The local monitor could not be started."));
+      return;
+    }
+
+    setReporterSnapshot(limitReporterSnapshotLogs(reporterResult.data));
+    setAppliedRuntimeConfigSignature(configSignature(normalized));
+    notify("success", "Runtime restarted", "Saved configuration changes are now running.");
+  }
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -803,10 +1276,12 @@ function App() {
       const state = await loadAppState();
       if (cancelled) return;
       const resolvedConfig = normalizeClientConfig(state.config);
+      const historyRecordLimit = clampHistoryLimit(resolvedConfig.captureHistoryRecordLimit, DEFAULT_HISTORY_RECORD_LIMIT);
+      const historyTitleLimit = clampHistoryLimit(resolvedConfig.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
       const payload = {
         config: resolvedConfig,
-        appHistory: normalizeAppHistory(state.appHistory),
-        playSourceHistory: normalizePlaySourceHistory(state.playSourceHistory),
+        appHistory: normalizeAppHistory(state.appHistory, historyRecordLimit, historyTitleLimit),
+        playSourceHistory: normalizePlaySourceHistory(state.playSourceHistory, historyRecordLimit),
         locale: "en-US",
       };
       setBaseState(payload);
@@ -890,15 +1365,40 @@ function App() {
   }, [activeRuleIndex, config.appMessageRules]);
 
   useEffect(() => {
-    if (!rulesDialogOpen && !discardDialogOpen && !jsonViewer) return;
+    setCustomPresetPage((current) => clampPage(current, config.discordCustomPresets.length, CUSTOM_PRESET_PAGE_SIZE));
+  }, [config.discordCustomPresets.length]);
+
+  useEffect(() => {
+    if (activeCustomPresetIndex !== null && !config.discordCustomPresets[activeCustomPresetIndex]) {
+      setActiveCustomPresetIndex(null);
+    }
+  }, [activeCustomPresetIndex, config.discordCustomPresets]);
+
+  useEffect(() => {
+    if (activeCustomPresetIndex === null) {
+      setPresetDetailsForceCustomChoice(false);
+      setPresetStateForceCustomChoice(false);
+    }
+  }, [activeCustomPresetIndex]);
+
+  useEffect(() => {
+    if (!rulesDialogOpen && !customRulesDialogOpen && activeCustomPresetIndex === null && !discardDialogOpen && !jsonViewer) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         if (jsonViewer) {
           setJsonViewer(null);
           return;
         }
+        if (activeCustomPresetIndex !== null) {
+          setActiveCustomPresetIndex(null);
+          return;
+        }
         if (discardDialogOpen) {
           setDiscardDialogOpen(false);
+          return;
+        }
+        if (customRulesDialogOpen) {
+          setCustomRulesDialogOpen(false);
           return;
         }
         setRulesDialogOpen(false);
@@ -906,22 +1406,31 @@ function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [rulesDialogOpen, discardDialogOpen, jsonViewer]);
+  }, [rulesDialogOpen, customRulesDialogOpen, activeCustomPresetIndex, discardDialogOpen, jsonViewer]);
 
   useEffect(() => {
     if (!hydrated || !config.captureReportedAppsEnabled) return;
+    const historyRecordLimit = clampHistoryLimit(config.captureHistoryRecordLimit, DEFAULT_HISTORY_RECORD_LIMIT);
+    const historyTitleLimit = clampHistoryLimit(config.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
     const nextAppHistory = shouldCaptureHistoryActivity(reporterSnapshot.currentActivity)
-      ? mergeAppHistory(baseState.appHistory, reporterSnapshot.currentActivity)
+      ? mergeAppHistory(baseState.appHistory, reporterSnapshot.currentActivity, historyRecordLimit, historyTitleLimit)
       : baseState.appHistory;
-    const nextPlaySourceHistory = mergePlaySourceHistory(baseState.playSourceHistory, reporterSnapshot.currentActivity);
+    const nextPlaySourceHistory = mergePlaySourceHistory(
+      baseState.playSourceHistory,
+      reporterSnapshot.currentActivity,
+      historyRecordLimit,
+    );
     if (sameJsonValue(nextAppHistory, baseState.appHistory) && sameJsonValue(nextPlaySourceHistory, baseState.playSourceHistory)) return;
     const payload = { ...baseState, appHistory: nextAppHistory, playSourceHistory: nextPlaySourceHistory };
     void saveAppState(payload).then(() => setBaseState(payload)).catch(() => {});
   }, [
     hydrated,
     config.captureReportedAppsEnabled,
+    config.captureHistoryRecordLimit,
+    config.captureHistoryTitleLimit,
     reporterSnapshot.currentActivity?.processName,
     reporterSnapshot.currentActivity?.processTitle,
+    reporterSnapshot.currentActivity?.rawProcessTitle,
     reporterSnapshot.currentActivity?.statusText,
     reporterSnapshot.currentActivity?.mediaTitle,
     reporterSnapshot.currentActivity?.mediaArtist,
@@ -938,9 +1447,38 @@ function App() {
   const activeCopy = SECTION_COPY[activeSection];
   const discordReady = config.discordApplicationId.trim().length > 0;
   const customDiscordMode = config.discordReportMode === "custom";
+  const activeDiscordModeName = discordReportModeName(config.discordReportMode);
+  const activeDiscordStatusDisplay = discordModeStatusDisplay(config, config.discordReportMode);
+  const activeDiscordAppNameMode = discordModeAppNameMode(config, config.discordReportMode);
+  const activeDiscordCustomAppName = discordModeCustomAppName(config, config.discordReportMode);
+  const customAppNameEnabled = activeDiscordAppNameMode === "custom";
+  const customAdvancedAddonsConfigured = Boolean(
+    config.discordCustomPartyId.trim() ||
+      config.discordCustomPartySizeCurrent ||
+      config.discordCustomPartySizeMax ||
+      config.discordCustomJoinSecret.trim() ||
+      config.discordCustomSpectateSecret.trim() ||
+      config.discordCustomMatchSecret.trim(),
+  );
+  const customAddonsConfigured = Boolean(config.discordCustomButtons.length || customAdvancedAddonsConfigured);
+  const activeRuleAdvancedAddonsConfigured = Boolean(
+    activeRule?.partyId.trim() ||
+      activeRule?.partySizeCurrent ||
+      activeRule?.partySizeMax ||
+      activeRule?.joinSecret.trim() ||
+      activeRule?.spectateSecret.trim() ||
+      activeRule?.matchSecret.trim(),
+  );
+  const historyRecordLimit = clampHistoryLimit(config.captureHistoryRecordLimit, DEFAULT_HISTORY_RECORD_LIMIT);
+  const historyTitleLimit = clampHistoryLimit(config.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
+  const appRawTitleCount = baseState.appHistory.reduce((total, entry) => total + appHistoryRawTitles(entry).length, 0);
+  const artworkPublishingMissing =
+    (config.discordUseAppArtwork || config.discordUseMusicArtwork) &&
+    config.discordArtworkWorkerUploadUrl.trim().length === 0;
   const runtimeAutostartEnabled = config.runtimeAutostartEnabled;
   const runtimeReady = baseState.config.discordApplicationId.trim().length > 0;
   const runtimeRunning = reporterSnapshot.running || discordSnapshot.running;
+  const currentLocalModeText = localWorkingModeText(runtimeRunning ? baseState.config : config);
   const runtimeNeedsRestart =
     runtimeRunning &&
     !dirty &&
@@ -1045,9 +1583,26 @@ function App() {
   const safeTitleRulePage = clampPage(titleRulePage, activeTitleRuleCount, TITLE_RULE_PAGE_SIZE);
   const titleRulePageStart = safeTitleRulePage * TITLE_RULE_PAGE_SIZE;
   const pagedTitleRules = activeRule?.titleRules.slice(titleRulePageStart, titleRulePageStart + TITLE_RULE_PAGE_SIZE) ?? [];
+  const customPresetTotalPages = pageCount(config.discordCustomPresets.length, CUSTOM_PRESET_PAGE_SIZE);
+  const safeCustomPresetPage = clampPage(customPresetPage, config.discordCustomPresets.length, CUSTOM_PRESET_PAGE_SIZE);
+  const customPresetPageStart = safeCustomPresetPage * CUSTOM_PRESET_PAGE_SIZE;
+  const pagedCustomPresets = config.discordCustomPresets.slice(
+    customPresetPageStart,
+    customPresetPageStart + CUSTOM_PRESET_PAGE_SIZE,
+  );
+  const activeCustomPreset =
+    activeCustomPresetIndex === null ? null : config.discordCustomPresets[activeCustomPresetIndex] ?? null;
 
   function update<K extends keyof ClientConfig>(key: K, value: ClientConfig[K]) {
     setConfig((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateDiscordModeSettings(patch: {
+    statusDisplay?: DiscordStatusDisplay;
+    appNameMode?: DiscordAppNameMode;
+    customAppName?: string;
+  }) {
+    setConfig((current) => patchDiscordModeSettings(current, current.discordReportMode, patch));
   }
 
   function updateRuntimeAutostart(enabled: boolean) {
@@ -1077,6 +1632,75 @@ function App() {
       next[titleRuleIndex] = updater(next[titleRuleIndex]);
       return { ...rule, titleRules: next };
     });
+  }
+
+  function patchDiscordCustomPresetAt(index: number, updater: (preset: DiscordCustomPreset) => DiscordCustomPreset) {
+    setConfig((current) => {
+      const next = [...current.discordCustomPresets];
+      if (!next[index]) {
+        return current;
+      }
+      next[index] = updater(next[index]);
+      return { ...current, discordCustomPresets: next };
+    });
+  }
+
+  function patchDiscordButtonAt(index: number, updater: (button: DiscordRichPresenceButtonConfig) => DiscordRichPresenceButtonConfig) {
+    setConfig((current) => {
+      const next = [...current.discordCustomButtons];
+      if (!next[index]) {
+        return current;
+      }
+      next[index] = updater(next[index]);
+      return { ...current, discordCustomButtons: next };
+    });
+  }
+
+  function patchRuleDiscordButtonAt(
+    ruleIndex: number,
+    buttonIndex: number,
+    updater: (button: DiscordRichPresenceButtonConfig) => DiscordRichPresenceButtonConfig,
+  ) {
+    patchRuleAt(ruleIndex, (rule) => {
+      const next = [...rule.buttons];
+      if (!next[buttonIndex]) {
+        return rule;
+      }
+      next[buttonIndex] = updater(next[buttonIndex]);
+      return { ...rule, buttons: next };
+    });
+  }
+
+  function saveCurrentCustomSettingsAsPreset() {
+    const nextPreset = createDiscordCustomPresetFromConfig(config);
+    const nextIndex = config.discordCustomPresets.length;
+    setConfig((current) => ({
+      ...current,
+      discordCustomPresets: [...current.discordCustomPresets, nextPreset],
+    }));
+    setCustomPresetPage(pageForIndex(nextIndex, CUSTOM_PRESET_PAGE_SIZE));
+    setActiveCustomPresetIndex(nextIndex);
+    setCustomRulesDialogOpen(true);
+  }
+
+  function applyDiscordCustomPreset(preset: DiscordCustomPreset) {
+    setConfig((current) => ({
+      ...current,
+      discordReportMode: "custom",
+      discordActivityType: preset.activityType,
+      discordCustomModeStatusDisplay: preset.statusDisplay,
+      discordCustomModeAppNameMode: preset.appNameMode,
+      discordCustomModeCustomAppName: preset.customAppName,
+      discordDetailsFormat: normalizeDiscordLineTemplate(preset.detailsFormat),
+      discordStateFormat: normalizeDiscordLineTemplate(preset.stateFormat),
+      discordCustomButtons: preset.buttons.map((button) => ({ ...button })),
+      discordCustomPartyId: preset.partyId,
+      discordCustomPartySizeCurrent: preset.partySizeCurrent ?? null,
+      discordCustomPartySizeMax: preset.partySizeMax ?? null,
+      discordCustomJoinSecret: preset.joinSecret,
+      discordCustomSpectateSecret: preset.spectateSecret,
+      discordCustomMatchSecret: preset.matchSecret,
+    }));
   }
 
   async function runAction(name: string, work: () => Promise<void>) {
@@ -1246,8 +1870,8 @@ function App() {
         </div>
         <div className="stat-grid">
           <div className={STAT_CARD_CLASS}>
-            <span>Capture mode</span>
-            <strong>{captureModeText(config)}</strong>
+            <span>Working mode</span>
+            <strong>{currentLocalModeText}</strong>
           </div>
           <div className={STAT_CARD_CLASS}>
             <span>Rule groups</span>
@@ -1285,6 +1909,13 @@ function App() {
             </div>
             <input className="toggle toggle-primary" type="checkbox" checked={config.appMessageRulesShowProcessName} onChange={(e) => update("appMessageRulesShowProcessName", e.currentTarget.checked)} />
           </label>
+          <label className={TOGGLE_TILE_CLASS}>
+            <div>
+              <strong>Force Custom add-ons override rule add-ons</strong>
+              <span>When Custom add-ons are configured, reuse them instead of the matched rule group's buttons or social metadata.</span>
+            </div>
+            <input className="toggle toggle-primary" type="checkbox" checked={config.discordUseCustomAddonsOverride} onChange={(e) => update("discordUseCustomAddonsOverride", e.currentTarget.checked)} />
+          </label>
         </div>
 
         <div className="card-actions gap-2">
@@ -1295,7 +1926,7 @@ function App() {
               const nextIndex = config.appMessageRules.length;
               setConfig((current) => ({
                 ...current,
-                appMessageRules: [...current.appMessageRules, { processMatch: "", defaultText: "", titleRules: [] }],
+                appMessageRules: [...current.appMessageRules, createAppMessageRuleGroup()],
               }));
               setActiveRuleIndex(nextIndex);
               setRuleGroupPage(pageForIndex(nextIndex, RULE_GROUP_PAGE_SIZE));
@@ -1341,6 +1972,8 @@ function App() {
                     ...current,
                     appMessageRules: parsed.data.appMessageRules,
                     appMessageRulesShowProcessName: parsed.data.appMessageRulesShowProcessName,
+                    discordUseCustomAddonsOverride: parsed.data.discordUseCustomAddonsOverride,
+                    discordCustomPresets: parsed.data.discordCustomPresets,
                     appFilterMode: parsed.data.appFilterMode,
                     appBlacklist: parsed.data.appBlacklist,
                     appWhitelist: parsed.data.appWhitelist,
@@ -1628,6 +2261,160 @@ function App() {
                     </>
                   )}
                 </div>
+
+                <details className="discord-advanced-panel rounded-box border border-base-300 bg-base-200/45 p-4">
+                  <summary className="discord-advanced-summary flex cursor-pointer list-none items-center justify-between gap-3">
+                    <div>
+                      <strong className="block font-semibold">Discord add-ons</strong>
+                      <p className="mt-1 text-sm text-base-content/70">
+                        The matched rule group can publish buttons, party metadata, or social secrets outside Custom mode.
+                      </p>
+                    </div>
+                    <div className="discord-advanced-summary-meta">
+                      {activeRule.buttons.length > 0 ? <span className="badge badge-soft">{activeRule.buttons.length} / 2 buttons</span> : null}
+                      {activeRuleAdvancedAddonsConfigured ? <span className="badge badge-soft">Configured</span> : null}
+                      {config.discordUseCustomAddonsOverride && customAddonsConfigured ? <span className="badge badge-soft">Custom override</span> : null}
+                      <span className="discord-advanced-summary-hint" aria-hidden="true">
+                        <span className="discord-advanced-summary-hint-closed">Expand</span>
+                        <span className="discord-advanced-summary-hint-open">Collapse</span>
+                        <span className="discord-advanced-summary-caret">v</span>
+                      </span>
+                    </div>
+                  </summary>
+                  <div className="mt-4 space-y-4">
+                    <div className="space-y-3">
+                      {activeRule.buttons.map((button, index) => (
+                        <div key={`rule-${activeRuleIndex}-discord-button-${index}`} className="rounded-box border border-base-300 bg-base-100/80 p-3 space-y-3">
+                          <div className="field-grid">
+                            <label className={FIELD_CLASS}>
+                              <span>Button label</span>
+                              <input
+                                className={INPUT_CLASS}
+                                value={button.label}
+                                onChange={(e) => patchRuleDiscordButtonAt(activeRuleIndex, index, (current) => ({ ...current, label: e.currentTarget.value }))}
+                                placeholder="Open website"
+                              />
+                            </label>
+                            <label className={FIELD_CLASS}>
+                              <span>Button URL</span>
+                              <input
+                                className={INPUT_CLASS}
+                                value={button.url}
+                                onChange={(e) => patchRuleDiscordButtonAt(activeRuleIndex, index, (current) => ({ ...current, url: e.currentTarget.value }))}
+                                placeholder="https://example.com or myapp://open"
+                              />
+                            </label>
+                          </div>
+                          <div className="card-actions justify-end">
+                            <button
+                              className={DANGER_BUTTON_CLASS}
+                              type="button"
+                              onClick={() =>
+                                patchRuleAt(activeRuleIndex, (rule) => ({
+                                  ...rule,
+                                  buttons: rule.buttons.filter((_, itemIndex) => itemIndex !== index),
+                                }))
+                              }
+                            >
+                              Remove button
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {activeRule.buttons.length < 2 ? (
+                        <button
+                          className={BUTTON_CLASS}
+                          type="button"
+                          onClick={() =>
+                            patchRuleAt(activeRuleIndex, (rule) => ({
+                              ...rule,
+                              buttons: [...rule.buttons, createDiscordButton()],
+                            }))
+                          }
+                        >
+                          Add button
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <details className="discord-advanced-panel rounded-box border border-base-300 bg-base-100/70 p-4">
+                      <summary className="discord-advanced-summary flex cursor-pointer list-none items-center justify-between gap-3">
+                        <div>
+                          <strong className="block font-semibold">Advanced</strong>
+                          <p className="mt-1 text-sm text-base-content/70">Party metadata and Discord social secrets.</p>
+                        </div>
+                        <div className="discord-advanced-summary-meta">
+                          {activeRuleAdvancedAddonsConfigured ? <span className="badge badge-soft">Configured</span> : null}
+                          <span className="discord-advanced-summary-hint" aria-hidden="true">
+                            <span className="discord-advanced-summary-hint-closed">Expand</span>
+                            <span className="discord-advanced-summary-hint-open">Collapse</span>
+                            <span className="discord-advanced-summary-caret">v</span>
+                          </span>
+                        </div>
+                      </summary>
+                      <div className="field-grid mt-4">
+                        <label className={FIELD_CLASS}>
+                          <span>Party ID</span>
+                          <input
+                            className={INPUT_CLASS}
+                            value={activeRule.partyId}
+                            onChange={(e) => patchRuleAt(activeRuleIndex, (rule) => ({ ...rule, partyId: e.currentTarget.value }))}
+                            placeholder="party-123"
+                          />
+                        </label>
+                        <label className={FIELD_CLASS}>
+                          <span>Party current size</span>
+                          <input
+                            className={INPUT_CLASS}
+                            type="number"
+                            min={1}
+                            value={activeRule.partySizeCurrent ?? ""}
+                            onChange={(e) => patchRuleAt(activeRuleIndex, (rule) => ({ ...rule, partySizeCurrent: normalizePositiveNumberInput(e.currentTarget.value) }))}
+                            placeholder="2"
+                          />
+                        </label>
+                        <label className={FIELD_CLASS}>
+                          <span>Party max size</span>
+                          <input
+                            className={INPUT_CLASS}
+                            type="number"
+                            min={1}
+                            value={activeRule.partySizeMax ?? ""}
+                            onChange={(e) => patchRuleAt(activeRuleIndex, (rule) => ({ ...rule, partySizeMax: normalizePositiveNumberInput(e.currentTarget.value) }))}
+                            placeholder="3"
+                          />
+                        </label>
+                        <label className={FIELD_SPAN_CLASS}>
+                          <span>Join secret</span>
+                          <input
+                            className={INPUT_CLASS}
+                            value={activeRule.joinSecret}
+                            onChange={(e) => patchRuleAt(activeRuleIndex, (rule) => ({ ...rule, joinSecret: e.currentTarget.value }))}
+                            placeholder="join-secret"
+                          />
+                        </label>
+                        <label className={FIELD_SPAN_CLASS}>
+                          <span>Spectate secret</span>
+                          <input
+                            className={INPUT_CLASS}
+                            value={activeRule.spectateSecret}
+                            onChange={(e) => patchRuleAt(activeRuleIndex, (rule) => ({ ...rule, spectateSecret: e.currentTarget.value }))}
+                            placeholder="spectate-secret"
+                          />
+                        </label>
+                        <label className={FIELD_SPAN_CLASS}>
+                          <span>Match secret</span>
+                          <input
+                            className={INPUT_CLASS}
+                            value={activeRule.matchSecret}
+                            onChange={(e) => patchRuleAt(activeRuleIndex, (rule) => ({ ...rule, matchSecret: e.currentTarget.value }))}
+                            placeholder="match-secret"
+                          />
+                        </label>
+                      </div>
+                    </details>
+                  </div>
+                </details>
               </>
             ) : (
               <div className="empty-state rules-empty">Create a process group to start editing local app message rules.</div>
@@ -1752,16 +2539,42 @@ function App() {
             <p className="eyebrow">History</p>
             <h3>Saved local records</h3>
           </div>
-          <span className={BADGE_CLASS}>{baseState.appHistory.length + baseState.playSourceHistory.length} records</span>
+          <span className={BADGE_CLASS}>
+            {baseState.appHistory.length + baseState.playSourceHistory.length} records · {appRawTitleCount} raw titles
+          </span>
         </div>
 
         <div className="toggle-grid compact-toggles rules-toggles">
           <label className={TOGGLE_TILE_CLASS}>
             <div>
               <strong>Capture reported apps</strong>
-              <span>Save the latest three app and play-source records for local suggestions and export.</span>
+              <span>Save recent app and play-source records for local suggestions and export.</span>
             </div>
             <input className="toggle toggle-primary" type="checkbox" checked={config.captureReportedAppsEnabled} onChange={(e) => update("captureReportedAppsEnabled", e.currentTarget.checked)} />
+          </label>
+        </div>
+        <div className="field-grid compact-fields">
+          <label className={FIELD_CLASS}>
+            <span>Records per list</span>
+            <input
+              className={INPUT_CLASS}
+              type="number"
+              min={MIN_HISTORY_LIMIT}
+              max={MAX_HISTORY_LIMIT}
+              value={historyRecordLimit}
+              onChange={(e) => update("captureHistoryRecordLimit", clampHistoryLimit(e.currentTarget.value, DEFAULT_HISTORY_RECORD_LIMIT))}
+            />
+          </label>
+          <label className={FIELD_CLASS}>
+            <span>Raw titles per app</span>
+            <input
+              className={INPUT_CLASS}
+              type="number"
+              min={MIN_HISTORY_LIMIT}
+              max={MAX_HISTORY_LIMIT}
+              value={historyTitleLimit}
+              onChange={(e) => update("captureHistoryTitleLimit", clampHistoryLimit(e.currentTarget.value, DEFAULT_HISTORY_TITLE_LIMIT))}
+            />
           </label>
         </div>
 
@@ -1769,37 +2582,48 @@ function App() {
           <div className="history-record-panel">
             <div className="history-record-head">
               <strong>Apps</strong>
-              <span>{baseState.appHistory.length} / {MAX_HISTORY_RECORDS}</span>
+              <span>{baseState.appHistory.length} / {historyRecordLimit}</span>
             </div>
             {baseState.appHistory.length === 0 ? (
               <div className="empty-state compact-empty">No app records yet.</div>
             ) : (
               <div className="history-record-list">
-                {baseState.appHistory.map((entry) => (
-                  <article key={`${entry.processName}-${entry.updatedAt ?? ""}`} className="history-record-item">
-                    <strong>{entry.processName}</strong>
-                    <span>{appHistoryDisplayTitle(entry)}</span>
-                    <small>{formatDate(entry.updatedAt)}</small>
-                  </article>
-                ))}
+                {baseState.appHistory.map((entry) => {
+                  const rawTitles = appHistoryRawTitles(entry).slice(0, historyTitleLimit);
+                  return (
+                    <article key={`${entry.processName}-${entry.updatedAt ?? ""}`} className="history-record-item">
+                      <strong>{entry.processName}</strong>
+                      <span>{appHistoryDisplayTitle(entry)}</span>
+                      {rawTitles.length > 0 ? (
+                        <div className="history-title-list">
+                          <small>Raw titles</small>
+                          {rawTitles.map((title) => (
+                            <code key={title}>{title}</code>
+                          ))}
+                        </div>
+                      ) : null}
+                      <small>{formatDate(entry.updatedAt)}</small>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>
           <div className="history-record-panel">
             <div className="history-record-head">
               <strong>Play sources</strong>
-              <span>{baseState.playSourceHistory.length} / {MAX_HISTORY_RECORDS}</span>
+              <span>{baseState.playSourceHistory.length} / {historyRecordLimit}</span>
             </div>
             {baseState.playSourceHistory.length === 0 ? (
               <div className="empty-state compact-empty">No play-source records yet.</div>
             ) : (
               <div className="history-record-list">
                 {baseState.playSourceHistory.map((entry) => (
-                  <article key={`${entry.source}-${entry.updatedAt ?? ""}`} className="history-record-item">
-                    <strong>{entry.source}</strong>
-                    <span>{playSourceHistoryDisplayTitle(entry)}</span>
-                    {playSourceHistoryMeta(entry) ? <span>{playSourceHistoryMeta(entry)}</span> : null}
-                    <small>{formatDate(entry.updatedAt)}</small>
+                  <article key={`${entry.source}-${entry.updatedAt ?? ""}`} className="history-record-item history-source-item">
+                    <span className="history-source-label">{entry.source}</span>
+                    <strong className="history-source-title">{playSourceHistoryDisplayTitle(entry)}</strong>
+                    <span className="history-source-meta">{playSourceHistoryMeta(entry)}</span>
+                    <small className="history-record-time">{formatDate(entry.updatedAt)}</small>
                   </article>
                 ))}
               </div>
@@ -1898,21 +2722,90 @@ function App() {
                 <strong>{option.title}</strong>
                 <span>{option.description}</span>
                 <div className="discord-mode-layout">
-                  <span>Details: {option.details}</span>
-                  <span>State: {option.state}</span>
+                  <span>
+                    Details:{" "}
+                    {option.details}
+                  </span>
+                  <span>
+                    State / Summary: {option.state}
+                  </span>
                 </div>
               </div>
             </label>
           ))}
         </div>
+        <div className="discord-custom-panel rounded-box border border-base-300 bg-base-200/45 p-4 space-y-4">
+          <div className="list-editor-summary">
+            <div className="list-editor-copy">
+              <strong className="block font-semibold">Compact status</strong>
+              <p>Controls Discord&apos;s compact member-list text only. This setting is saved separately for the current mode.</p>
+            </div>
+            <span className="badge badge-soft">{activeDiscordModeName} mode</span>
+          </div>
+          <div className="field-grid">
+            <label className={FIELD_CLASS}>
+              <span>Compact status</span>
+              <select
+                className={SELECT_CLASS}
+                value={activeDiscordStatusDisplay}
+                onChange={(e) => updateDiscordModeSettings({ statusDisplay: e.currentTarget.value as DiscordStatusDisplay })}
+              >
+                {DISCORD_STATUS_DISPLAY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="discord-custom-panel rounded-box border border-base-300 bg-base-200/45 p-4 space-y-4">
+          <div className="list-editor-summary">
+            <div className="list-editor-copy">
+              <strong className="block font-semibold">Custom application name</strong>
+              <p>This setting is saved separately for the current mode. Smart and App still keep their fixed app-first output while an app is active.</p>
+            </div>
+            <span className="badge badge-soft">{activeDiscordModeName} mode</span>
+          </div>
+          <div className="field-grid">
+            <label className={FIELD_CLASS}>
+              <span>Application name source</span>
+              <select
+                className={SELECT_CLASS}
+                value={activeDiscordAppNameMode}
+                onChange={(e) => updateDiscordModeSettings({ appNameMode: e.currentTarget.value as DiscordAppNameMode })}
+              >
+                {DISCORD_APP_NAME_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {customAppNameEnabled ? (
+              <label className={FIELD_SPAN_CLASS}>
+                <span>Custom application text</span>
+                <input
+                  className={INPUT_CLASS}
+                  value={activeDiscordCustomAppName}
+                  onChange={(e) => updateDiscordModeSettings({ customAppName: e.currentTarget.value })}
+                  placeholder="Your custom application name"
+                />
+              </label>
+            ) : null}
+          </div>
+        </div>
         {customDiscordMode ? (
           <div className="discord-custom-panel rounded-box border border-base-300 bg-base-200/45 p-4 space-y-4">
             <div className="list-editor-summary">
               <div className="list-editor-copy">
-                <strong className="block font-semibold">Custom Discord text</strong>
-                <p>Edit the two Discord lines directly and choose the Discord activity label.</p>
+                <strong className="block font-semibold">Custom mode</strong>
+                <p>Choose the activity label and pick each Discord line from a short list of built-in options.</p>
               </div>
-              <span className="badge badge-soft">{discordActivityTypeText(config.discordActivityType)}</span>
+              <div className="card-actions gap-2">
+                <span className="badge badge-soft">{discordActivityTypeText(config.discordActivityType)}</span>
+                <DiscordOptionHelp idPrefix="custom-mode-help" />
+              </div>
             </div>
             <div className="radio-grid discord-activity-grid">
               {DISCORD_ACTIVITY_TYPE_OPTIONS.map((option) => (
@@ -1933,45 +2826,247 @@ function App() {
             </div>
             <div className="field-grid">
               <label className={FIELD_SPAN_CLASS}>
-                <span>Details format</span>
-                <input
-                  ref={discordDetailsInputRef}
-                  className={`${INPUT_CLASS} ${activeDiscordFormatField === "details" ? "discord-format-input-active" : ""}`}
-                  value={config.discordDetailsFormat}
-                  onChange={(e) => update("discordDetailsFormat", e.currentTarget.value)}
-                  onFocus={() => setActiveDiscordFormatField("details")}
-                  placeholder="{activity}"
-                />
-              </label>
-              <label className={FIELD_SPAN_CLASS}>
-                <span>State format</span>
-                <input
-                  ref={discordStateInputRef}
-                  className={`${INPUT_CLASS} ${activeDiscordFormatField === "state" ? "discord-format-input-active" : ""}`}
-                  value={config.discordStateFormat}
-                  onChange={(e) => update("discordStateFormat", e.currentTarget.value)}
-                  onFocus={() => setActiveDiscordFormatField("state")}
-                  placeholder="{context}"
-                />
-              </label>
-            </div>
-            <div className="token-toolbar-copy">
-              <strong>Template tokens</strong>
-              <p>Click a token to insert it into {activeDiscordFormatField === "state" ? "State format" : "Details format"}.</p>
-            </div>
-            <div className="template-token-list">
-              {DISCORD_TEMPLATE_TOKENS.map((token) => (
-                <button
-                  key={token}
-                  className="btn btn-outline btn-xs rounded-md normal-case"
-                  type="button"
-                  title={DISCORD_TEMPLATE_TOKEN_HINTS[token]}
-                  aria-label={`${token}: ${DISCORD_TEMPLATE_TOKEN_HINTS[token]}`}
-                  onClick={() => insertDiscordToken(token)}
+                <span>Line 2</span>
+                <select
+                  className={SELECT_CLASS}
+                  value={resolveDiscordLineChoice(config.discordDetailsFormat, discordDetailsForceCustomChoice)}
+                  onChange={(e) => {
+                    const value = e.currentTarget.value;
+                    setDiscordDetailsForceCustomChoice(value === DISCORD_CUSTOM_LINE_CUSTOM_VALUE);
+                    update("discordDetailsFormat", nextDiscordLineValue(config.discordDetailsFormat, value));
+                  }}
                 >
-                  {token}
-                </button>
-              ))}
+                  {DISCORD_CUSTOM_LINE_OPTIONS.map((option) => (
+                    <option key={`details-${option.value || "hidden"}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {resolveDiscordLineChoice(config.discordDetailsFormat, discordDetailsForceCustomChoice) === DISCORD_CUSTOM_LINE_CUSTOM_VALUE ? (
+                <label className={FIELD_SPAN_CLASS}>
+                  <span>Line 2 custom text</span>
+                  <input
+                    className={INPUT_CLASS}
+                    value={discordLineCustomTextValue(config.discordDetailsFormat)}
+                    onChange={(e) => {
+                      setDiscordDetailsForceCustomChoice(true);
+                      update(
+                        "discordDetailsFormat",
+                        e.currentTarget.value.trim() || DISCORD_CUSTOM_LINE_CUSTOM_VALUE,
+                      );
+                    }}
+                    placeholder="Coding in {app}"
+                  />
+                  <DiscordTemplateTokenRow
+                    onInsert={(token) => {
+                      setDiscordDetailsForceCustomChoice(true);
+                      update(
+                        "discordDetailsFormat",
+                        appendDiscordTemplateToken(discordLineCustomTextValue(config.discordDetailsFormat), token),
+                      );
+                    }}
+                  />
+                </label>
+              ) : null}
+              <label className={FIELD_SPAN_CLASS}>
+                <span>Line 3</span>
+                <select
+                  className={SELECT_CLASS}
+                  value={resolveDiscordLineChoice(config.discordStateFormat, discordStateForceCustomChoice)}
+                  onChange={(e) => {
+                    const value = e.currentTarget.value;
+                    setDiscordStateForceCustomChoice(value === DISCORD_CUSTOM_LINE_CUSTOM_VALUE);
+                    update("discordStateFormat", nextDiscordLineValue(config.discordStateFormat, value));
+                  }}
+                >
+                  {DISCORD_CUSTOM_LINE_OPTIONS.map((option) => (
+                    <option key={`state-${option.value || "hidden"}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {resolveDiscordLineChoice(config.discordStateFormat, discordStateForceCustomChoice) === DISCORD_CUSTOM_LINE_CUSTOM_VALUE ? (
+                <label className={FIELD_SPAN_CLASS}>
+                  <span>Line 3 custom text</span>
+                  <input
+                    className={INPUT_CLASS}
+                    value={discordLineCustomTextValue(config.discordStateFormat)}
+                    onChange={(e) => {
+                      setDiscordStateForceCustomChoice(true);
+                      update(
+                        "discordStateFormat",
+                        e.currentTarget.value.trim() || DISCORD_CUSTOM_LINE_CUSTOM_VALUE,
+                      );
+                    }}
+                    placeholder="With {artist}"
+                  />
+                  <DiscordTemplateTokenRow
+                    onInsert={(token) => {
+                      setDiscordStateForceCustomChoice(true);
+                      update(
+                        "discordStateFormat",
+                        appendDiscordTemplateToken(discordLineCustomTextValue(config.discordStateFormat), token),
+                      );
+                    }}
+                  />
+                </label>
+              ) : null}
+            </div>
+            <div className="rounded-box border border-base-300 bg-base-100 p-4 space-y-4">
+              <div className={PANEL_HEAD_CLASS}>
+                <div>
+                  <strong className="block font-semibold">Custom add-ons</strong>
+                  <p className="mt-1 text-sm text-base-content/70">URL buttons stay visible here. Party and secrets live under Advanced.</p>
+                </div>
+                <span className="badge badge-soft">{config.discordCustomButtons.length} / 2 buttons</span>
+              </div>
+              <div className="space-y-3">
+                {config.discordCustomButtons.map((button, index) => (
+                  <div key={`discord-button-${index}`} className="rounded-box border border-base-300 bg-base-200/50 p-3 space-y-3">
+                    <div className="field-grid">
+                      <label className={FIELD_CLASS}>
+                        <span>Button label</span>
+                        <input
+                          className={INPUT_CLASS}
+                          value={button.label}
+                          onChange={(e) => patchDiscordButtonAt(index, (current) => ({ ...current, label: e.currentTarget.value }))}
+                          placeholder="Open website"
+                        />
+                      </label>
+                      <label className={FIELD_CLASS}>
+                        <span>Button URL</span>
+                        <input
+                          className={INPUT_CLASS}
+                          value={button.url}
+                          onChange={(e) => patchDiscordButtonAt(index, (current) => ({ ...current, url: e.currentTarget.value }))}
+                          placeholder="https://example.com or myapp://open"
+                        />
+                      </label>
+                    </div>
+                    <div className="card-actions justify-end">
+                      <button
+                        className={DANGER_BUTTON_CLASS}
+                        type="button"
+                        onClick={() => setConfig((current) => ({
+                          ...current,
+                          discordCustomButtons: current.discordCustomButtons.filter((_, itemIndex) => itemIndex !== index),
+                        }))}
+                      >
+                        Remove button
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {config.discordCustomButtons.length < 2 ? (
+                  <button
+                    className={BUTTON_CLASS}
+                    type="button"
+                    onClick={() => setConfig((current) => ({
+                      ...current,
+                      discordCustomButtons: [...current.discordCustomButtons, createDiscordButton()],
+                    }))}
+                  >
+                    Add button
+                  </button>
+                ) : null}
+              </div>
+              <details className="discord-advanced-panel rounded-box border border-base-300 bg-base-200/45 p-4">
+                <summary className="discord-advanced-summary flex cursor-pointer list-none items-center justify-between gap-3">
+                  <div>
+                    <strong className="block font-semibold">Advanced</strong>
+                    <p className="mt-1 text-sm text-base-content/70">Party metadata and Discord social secrets.</p>
+                  </div>
+                  <div className="discord-advanced-summary-meta">
+                    {customAdvancedAddonsConfigured ? <span className="badge badge-soft">Configured</span> : null}
+                    <span className="discord-advanced-summary-hint" aria-hidden="true">
+                      <span className="discord-advanced-summary-hint-closed">Expand</span>
+                      <span className="discord-advanced-summary-hint-open">Collapse</span>
+                      <span className="discord-advanced-summary-caret">v</span>
+                    </span>
+                  </div>
+                </summary>
+                <div className="field-grid mt-4">
+                  <label className={FIELD_CLASS}>
+                    <span>Party ID</span>
+                    <input
+                      className={INPUT_CLASS}
+                      value={config.discordCustomPartyId}
+                      onChange={(e) => update("discordCustomPartyId", e.currentTarget.value)}
+                      placeholder="party-123"
+                    />
+                  </label>
+                  <label className={FIELD_CLASS}>
+                    <span>Party current size</span>
+                    <input
+                      className={INPUT_CLASS}
+                      type="number"
+                      min={1}
+                      value={config.discordCustomPartySizeCurrent ?? ""}
+                      onChange={(e) => update("discordCustomPartySizeCurrent", normalizePositiveNumberInput(e.currentTarget.value))}
+                      placeholder="2"
+                    />
+                  </label>
+                  <label className={FIELD_CLASS}>
+                    <span>Party max size</span>
+                    <input
+                      className={INPUT_CLASS}
+                      type="number"
+                      min={1}
+                      value={config.discordCustomPartySizeMax ?? ""}
+                      onChange={(e) => update("discordCustomPartySizeMax", normalizePositiveNumberInput(e.currentTarget.value))}
+                      placeholder="3"
+                    />
+                  </label>
+                  <label className={FIELD_SPAN_CLASS}>
+                    <span>Join secret</span>
+                    <input
+                      className={INPUT_CLASS}
+                      value={config.discordCustomJoinSecret}
+                      onChange={(e) => update("discordCustomJoinSecret", e.currentTarget.value)}
+                      placeholder="join-secret"
+                    />
+                  </label>
+                  <label className={FIELD_SPAN_CLASS}>
+                    <span>Spectate secret</span>
+                    <input
+                      className={INPUT_CLASS}
+                      value={config.discordCustomSpectateSecret}
+                      onChange={(e) => update("discordCustomSpectateSecret", e.currentTarget.value)}
+                      placeholder="spectate-secret"
+                    />
+                  </label>
+                  <label className={FIELD_SPAN_CLASS}>
+                    <span>Match secret</span>
+                    <input
+                      className={INPUT_CLASS}
+                      value={config.discordCustomMatchSecret}
+                      onChange={(e) => update("discordCustomMatchSecret", e.currentTarget.value)}
+                      placeholder="match-secret"
+                    />
+                  </label>
+                </div>
+              </details>
+            </div>
+            <div className="rounded-box border border-base-300 bg-base-100 p-4">
+              <div className={PANEL_HEAD_CLASS}>
+                <div>
+                  <strong className="block font-semibold">Custom presets</strong>
+                  <p className="mt-1 text-sm text-base-content/70">
+                    Save ready-to-use Custom profiles for one-click selection and import.
+                  </p>
+                </div>
+                <div className="card-actions gap-2">
+                  <span className="badge badge-soft">{config.discordCustomPresets.length} presets</span>
+                  <button className={PRIMARY_BUTTON_CLASS} type="button" onClick={saveCurrentCustomSettingsAsPreset}>
+                    Save current as preset
+                  </button>
+                  <button className={BUTTON_CLASS} type="button" onClick={() => setCustomRulesDialogOpen(true)}>
+                    Open presets
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
@@ -1994,7 +3089,7 @@ function App() {
             <label className={TOGGLE_TILE_CLASS}>
               <div>
                 <strong>Show app name in Smart mode</strong>
-                <span>Show the current app name in Smart mode. With music it becomes `title | app` on the first line, and without music it shows only the app name on the last line.</span>
+                <span>Show the current foreground app on line 2 in Smart mode when an app is active.</span>
               </div>
               <input
                 className="toggle toggle-primary"
@@ -2036,15 +3131,21 @@ function App() {
             <div className="list-editor-summary">
               <div className="list-editor-copy">
                 <strong className="block font-semibold">Artwork publishing</strong>
-                <p>Selected app icons and media cover art are converted to 128x128 JPEG and uploaded through your uploader service, which returns signed public image URLs for Discord with a 3600 second lifetime.</p>
+                <p>App icons are uploaded as PNG with transparency preserved, while music artwork is uploaded as JPEG. ActivityPing normalizes both to a 256px target and keeps each uploaded image within a 30 KB budget before sending it to your uploader service.</p>
               </div>
               <span className="badge badge-soft">Uploader service</span>
             </div>
+            {artworkPublishingMissing ? (
+              <div className="alert alert-warning alert-soft text-sm">
+                <span>Artwork publishing needs an uploader service URL before these artwork settings can be saved.</span>
+              </div>
+            ) : null}
             <div className="field-grid">
               <label className={FIELD_SPAN_CLASS}>
                 <span>Uploader service URL</span>
                 <input
                   className={INPUT_CLASS}
+                  aria-invalid={artworkPublishingMissing}
                   value={config.discordArtworkWorkerUploadUrl}
                   onChange={(e) => update("discordArtworkWorkerUploadUrl", e.currentTarget.value)}
                   placeholder="https://your-uploader.example.com/upload"
@@ -2178,19 +3279,19 @@ function App() {
         <div className="card-actions gap-2">
           <button
             className={PRIMARY_BUTTON_CLASS}
-            disabled={busy.startRuntime || runtimeRunning || !runtimeReady}
+            disabled={busy.startRuntime || busy.restartRuntime || runtimeRunning || !runtimeReady}
             onClick={() => runAction("startRuntime", startRuntimeSession)}
           >
             {busy.startRuntime ? "Starting..." : runtimeReady ? "Start runtime" : "RPC required"}
           </button>
           <button
             className={BUTTON_CLASS}
-            disabled={busy.stopRuntime || !runtimeRunning}
+            disabled={busy.stopRuntime || busy.restartRuntime || !runtimeRunning}
             onClick={() => runAction("stopRuntime", stopRuntimeSession)}
           >
             Stop runtime
           </button>
-          <button className={BUTTON_CLASS} disabled={busy.refreshRuntime || !runtimeReady} onClick={() => runAction("refreshRuntime", async () => { await refreshReporter(); await refreshDiscord(); notify("info", "Runtime refreshed", "The live status panels were updated."); })}>
+          <button className={BUTTON_CLASS} disabled={busy.refreshRuntime || busy.restartRuntime || !runtimeReady} onClick={() => runAction("refreshRuntime", async () => { await refreshReporter(); await refreshDiscord(); notify("info", "Runtime refreshed", "The live status panels were updated."); })}>
             {busy.refreshRuntime ? "Refreshing..." : runtimeReady ? "Refresh" : "RPC required"}
           </button>
         </div>
@@ -2427,6 +3528,399 @@ function App() {
         </section>
       ) : null}
 
+      {customRulesDialogOpen ? (
+        <section
+          className="modal modal-open"
+          onClick={() => {
+            setActiveCustomPresetIndex(null);
+            setCustomRulesDialogOpen(false);
+          }}
+        >
+          <div className="modal-box w-11/12 max-w-5xl p-0" role="dialog" aria-modal="true" aria-labelledby="custom-presets-dialog-title" onClick={(event) => event.stopPropagation()}>
+            <div className="card-body">
+              <div className={PANEL_HEAD_CLASS}>
+                <div>
+                  <p className="eyebrow">Custom</p>
+                  <h3 id="custom-presets-dialog-title" className="card-title">Custom presets</h3>
+                  <p>Browse saved Custom profiles page by page. Click one to open its editor.</p>
+                </div>
+                <div className="card-actions gap-2">
+                  <button
+                    className={PRIMARY_BUTTON_CLASS}
+                    type="button"
+                    onClick={saveCurrentCustomSettingsAsPreset}
+                  >
+                    Save current as preset
+                  </button>
+                  <button
+                    className={BUTTON_CLASS}
+                    type="button"
+                    onClick={() => {
+                      const nextIndex = config.discordCustomPresets.length;
+                      setConfig((current) => ({
+                        ...current,
+                        discordCustomPresets: [...current.discordCustomPresets, createDiscordCustomPreset()],
+                      }));
+                      setCustomPresetPage(pageForIndex(nextIndex, CUSTOM_PRESET_PAGE_SIZE));
+                      setActiveCustomPresetIndex(nextIndex);
+                    }}
+                  >
+                    Add preset
+                  </button>
+                  <button
+                    className={BUTTON_CLASS}
+                    type="button"
+                    onClick={() => {
+                      setActiveCustomPresetIndex(null);
+                      setCustomRulesDialogOpen(false);
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+              <div className="rule-modal-body">
+                {config.discordCustomPresets.length === 0 ? (
+                  <div className="empty-state">No Custom presets yet.</div>
+                ) : (
+                  <>
+                    <div className="grid gap-2">
+                      {pagedCustomPresets.map((rule, offset) => {
+                        const index = customPresetPageStart + offset;
+                        return (
+                          <article
+                            key={`custom-preset-${index}`}
+                            className={`${SUBRULE_CARD_CLASS} log-entry-clickable p-4`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setActiveCustomPresetIndex(index)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setActiveCustomPresetIndex(index);
+                              }
+                            }}
+                          >
+                        <div className={PANEL_HEAD_CLASS}>
+                          <div>
+                            <strong className="block font-semibold">
+                              {rule.name.trim() || `Custom preset ${index + 1}`}
+                            </strong>
+                            <p className="mt-1 text-sm text-base-content/70">{summarizeDiscordCustomPreset(rule)}</p>
+                          </div>
+                          <div className="card-actions gap-2">
+                            <span className="badge badge-soft">Open</span>
+                            <button
+                              className={BUTTON_CLASS}
+                              type="button"
+                              disabled={index <= 0}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const nextIndex = index - 1;
+                                setConfig((current) => ({
+                                  ...current,
+                                  discordCustomPresets: moveItem(current.discordCustomPresets, index, nextIndex),
+                                }));
+                                setCustomPresetPage(pageForIndex(nextIndex, CUSTOM_PRESET_PAGE_SIZE));
+                              }}
+                            >
+                              Up
+                            </button>
+                            <button
+                              className={BUTTON_CLASS}
+                              type="button"
+                              disabled={index >= config.discordCustomPresets.length - 1}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const nextIndex = index + 1;
+                                setConfig((current) => ({
+                                  ...current,
+                                  discordCustomPresets: moveItem(current.discordCustomPresets, index, nextIndex),
+                                }));
+                                setCustomPresetPage(pageForIndex(nextIndex, CUSTOM_PRESET_PAGE_SIZE));
+                              }}
+                            >
+                              Down
+                            </button>
+                            <button
+                              className={DANGER_BUTTON_CLASS}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setConfig((current) => ({
+                                  ...current,
+                                  discordCustomPresets: current.discordCustomPresets.filter((_, itemIndex) => itemIndex !== index),
+                                }));
+                                if (activeCustomPresetIndex === index) {
+                                  setActiveCustomPresetIndex(null);
+                                }
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                        );
+                      })}
+                    </div>
+                    {customPresetTotalPages > 1 ? (
+                      <div className="pagination-row">
+                        <span className="pagination-copy">
+                          {customPresetPageStart + 1}-{Math.min(customPresetPageStart + CUSTOM_PRESET_PAGE_SIZE, config.discordCustomPresets.length)} of {config.discordCustomPresets.length}
+                        </span>
+                        <div className="join">
+                          <button
+                            className="btn btn-outline btn-xs join-item"
+                            type="button"
+                            disabled={safeCustomPresetPage <= 0}
+                            onClick={() => setCustomPresetPage((current) => clampPage(current - 1, config.discordCustomPresets.length, CUSTOM_PRESET_PAGE_SIZE))}
+                          >
+                            Prev
+                          </button>
+                          <span className="btn btn-ghost btn-xs join-item no-animation">
+                            Page {safeCustomPresetPage + 1} / {customPresetTotalPages}
+                          </span>
+                          <button
+                            className="btn btn-outline btn-xs join-item"
+                            type="button"
+                            disabled={safeCustomPresetPage >= customPresetTotalPages - 1}
+                            onClick={() => setCustomPresetPage((current) => clampPage(current + 1, config.discordCustomPresets.length, CUSTOM_PRESET_PAGE_SIZE))}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {activeCustomPreset && activeCustomPresetIndex !== null ? (
+        <section className="modal modal-open" onClick={() => setActiveCustomPresetIndex(null)}>
+          <div className="modal-box w-11/12 max-w-4xl p-0" role="dialog" aria-modal="true" aria-labelledby="custom-preset-editor-title" onClick={(event) => event.stopPropagation()}>
+            <div className="card-body">
+              <div className={PANEL_HEAD_CLASS}>
+                <div>
+                  <p className="eyebrow">Custom preset</p>
+                  <h3 id="custom-preset-editor-title" className="card-title">
+                    {activeCustomPreset.name.trim() || `Custom preset ${activeCustomPresetIndex + 1}`}
+                  </h3>
+                  <p>Edit the preset fields that will be imported into Custom mode output.</p>
+                </div>
+                <div className="card-actions gap-2">
+                  <DiscordOptionHelp idPrefix="custom-preset-help" includeSmartModeNote={false} />
+                  <button
+                    className={PRIMARY_BUTTON_CLASS}
+                    type="button"
+                    onClick={() => {
+                      applyDiscordCustomPreset(activeCustomPreset);
+                      setActiveCustomPresetIndex(null);
+                      setCustomRulesDialogOpen(false);
+                    }}
+                  >
+                    Use preset
+                  </button>
+                  <button className={BUTTON_CLASS} type="button" onClick={() => setActiveCustomPresetIndex(null)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div className="field-grid compact-fields">
+                <label className={FIELD_CLASS}>
+                  <span>Name</span>
+                  <input
+                    className={INPUT_CLASS}
+                    value={activeCustomPreset.name}
+                    onChange={(e) => {
+                      const value = e.currentTarget.value;
+                      patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({ ...item, name: value }));
+                    }}
+                    placeholder="Work profile"
+                  />
+                </label>
+                <label className={FIELD_CLASS}>
+                  <span>Activity label</span>
+                  <select
+                    className={SELECT_CLASS}
+                    value={activeCustomPreset.activityType}
+                    onChange={(e) => {
+                      const activityType = e.currentTarget.value as DiscordActivityType;
+                      patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({ ...item, activityType }));
+                    }}
+                  >
+                    {DISCORD_ACTIVITY_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={FIELD_CLASS}>
+                  <span>Compact status</span>
+                  <select
+                    className={SELECT_CLASS}
+                    value={activeCustomPreset.statusDisplay}
+                    onChange={(e) => {
+                      const statusDisplay = e.currentTarget.value as DiscordStatusDisplay;
+                      patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({ ...item, statusDisplay }));
+                    }}
+                  >
+                    {DISCORD_STATUS_DISPLAY_OPTIONS.map((option) => (
+                      <option key={`preset-status-${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={FIELD_CLASS}>
+                  <span>Application name source</span>
+                  <select
+                    className={SELECT_CLASS}
+                    value={activeCustomPreset.appNameMode}
+                    onChange={(e) => {
+                      const appNameMode = e.currentTarget.value as DiscordAppNameMode;
+                      patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({ ...item, appNameMode }));
+                    }}
+                  >
+                    {DISCORD_APP_NAME_OPTIONS.map((option) => (
+                      <option key={`preset-app-name-${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {activeCustomPreset.appNameMode === "custom" ? (
+                  <label className={FIELD_SPAN_CLASS}>
+                    <span>Custom application text</span>
+                    <input
+                      className={INPUT_CLASS}
+                      value={activeCustomPreset.customAppName}
+                      onChange={(e) => {
+                        const customAppName = e.currentTarget.value;
+                        patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({ ...item, customAppName }));
+                      }}
+                      placeholder="Your custom application name"
+                    />
+                  </label>
+                ) : null}
+                <label className={FIELD_SPAN_CLASS}>
+                  <span>Preset Line 2</span>
+                  <select
+                    className={SELECT_CLASS}
+                    value={resolveDiscordLineChoice(activeCustomPreset.detailsFormat ?? "", presetDetailsForceCustomChoice)}
+                    onChange={(e) => {
+                      const value = e.currentTarget.value;
+                      setPresetDetailsForceCustomChoice(value === DISCORD_CUSTOM_LINE_CUSTOM_VALUE);
+                      patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({
+                        ...item,
+                        detailsFormat: nextDiscordLineValue(item.detailsFormat ?? "", value),
+                      }));
+                    }}
+                  >
+                    {DISCORD_CUSTOM_LINE_OPTIONS.map((option) => (
+                      <option key={`preset-details-${option.value || "hidden"}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {resolveDiscordLineChoice(activeCustomPreset.detailsFormat ?? "", presetDetailsForceCustomChoice) === DISCORD_CUSTOM_LINE_CUSTOM_VALUE ? (
+                  <label className={FIELD_SPAN_CLASS}>
+                    <span>Preset Line 2 custom text</span>
+                    <input
+                      className={INPUT_CLASS}
+                      value={discordLineCustomTextValue(activeCustomPreset.detailsFormat ?? "")}
+                      onChange={(e) => {
+                        setPresetDetailsForceCustomChoice(true);
+                        const detailsFormat = e.currentTarget.value.trim() || DISCORD_CUSTOM_LINE_CUSTOM_VALUE;
+                        patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({ ...item, detailsFormat }));
+                      }}
+                      placeholder="Coding in {app}"
+                    />
+                    <DiscordTemplateTokenRow
+                      onInsert={(token) => {
+                        setPresetDetailsForceCustomChoice(true);
+                        patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({
+                          ...item,
+                          detailsFormat: appendDiscordTemplateToken(
+                            discordLineCustomTextValue(item.detailsFormat ?? ""),
+                            token,
+                          ),
+                        }));
+                      }}
+                    />
+                  </label>
+                ) : null}
+                <label className={FIELD_SPAN_CLASS}>
+                  <span>Preset Line 3</span>
+                  <select
+                    className={SELECT_CLASS}
+                    value={resolveDiscordLineChoice(activeCustomPreset.stateFormat ?? "", presetStateForceCustomChoice)}
+                    onChange={(e) => {
+                      const value = e.currentTarget.value;
+                      setPresetStateForceCustomChoice(value === DISCORD_CUSTOM_LINE_CUSTOM_VALUE);
+                      patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({
+                        ...item,
+                        stateFormat: nextDiscordLineValue(item.stateFormat ?? "", value),
+                      }));
+                    }}
+                  >
+                    {DISCORD_CUSTOM_LINE_OPTIONS.map((option) => (
+                      <option key={`preset-state-${option.value || "hidden"}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {resolveDiscordLineChoice(activeCustomPreset.stateFormat ?? "", presetStateForceCustomChoice) === DISCORD_CUSTOM_LINE_CUSTOM_VALUE ? (
+                  <label className={FIELD_SPAN_CLASS}>
+                    <span>Preset Line 3 custom text</span>
+                    <input
+                      className={INPUT_CLASS}
+                      value={discordLineCustomTextValue(activeCustomPreset.stateFormat ?? "")}
+                      onChange={(e) => {
+                        setPresetStateForceCustomChoice(true);
+                        const stateFormat = e.currentTarget.value.trim() || DISCORD_CUSTOM_LINE_CUSTOM_VALUE;
+                        patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({ ...item, stateFormat }));
+                      }}
+                      placeholder="With {artist}"
+                    />
+                    <DiscordTemplateTokenRow
+                      onInsert={(token) => {
+                        setPresetStateForceCustomChoice(true);
+                        patchDiscordCustomPresetAt(activeCustomPresetIndex, (item) => ({
+                          ...item,
+                          stateFormat: appendDiscordTemplateToken(
+                            discordLineCustomTextValue(item.stateFormat ?? ""),
+                            token,
+                          ),
+                        }));
+                      }}
+                    />
+                  </label>
+                ) : null}
+              </div>
+              <div className="rounded-box border border-base-300 bg-base-100 p-4 text-sm text-base-content/70">
+                <p>
+                  <strong>Saved add-ons:</strong>{" "}
+                  {[
+                    `${activeCustomPreset.buttons.length} button${activeCustomPreset.buttons.length === 1 ? "" : "s"}`,
+                    activeCustomPreset.partyId.trim() || activeCustomPreset.partySizeCurrent || activeCustomPreset.partySizeMax ? "party" : null,
+                    activeCustomPreset.joinSecret.trim() || activeCustomPreset.spectateSecret.trim() || activeCustomPreset.matchSecret.trim() ? "secrets" : null,
+                  ].filter(Boolean).join(" · ") || "none"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {discardDialogOpen ? (
         <section className="modal modal-open" onClick={() => setDiscardDialogOpen(false)}>
           <div className="modal-box w-11/12 max-w-xl p-0" role="dialog" aria-modal="true" aria-labelledby="discard-dialog-title" onClick={(event) => event.stopPropagation()}>
@@ -2498,6 +3992,16 @@ function App() {
                   <strong>Runtime restart required</strong>
                   <span>Restart runtime to apply the saved configuration changes.</span>
                 </div>
+              </div>
+              <div className="save-reminder-actions">
+                <button
+                  className={PRIMARY_BUTTON_CLASS}
+                  type="button"
+                  disabled={busy.restartRuntime || busy.startRuntime || busy.stopRuntime}
+                  onClick={() => runAction("restartRuntime", restartRuntimeSession)}
+                >
+                  {busy.restartRuntime ? "Restarting..." : "Restart now"}
+                </button>
               </div>
             </div>
           </article>

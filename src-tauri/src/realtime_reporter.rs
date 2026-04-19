@@ -13,11 +13,16 @@ use serde_json::{json, Value};
 use crate::{
     backend_locale::BackendLocale,
     models::{
-        ApiResult, AppFilterMode, ClientConfig, RealtimeReporterSnapshot, ReporterActivity,
-        ReporterLogEntry,
+        ApiResult, ClientConfig, RealtimeReporterSnapshot, ReporterActivity, ReporterLogEntry,
     },
-    platform::{get_foreground_snapshot_for_reporting, get_now_playing, MediaInfo},
-    rules::{normalize_client_config, resolve_activity},
+    platform::{
+        get_foreground_snapshot_for_reporting, get_now_playing, ForegroundSnapshot, MediaInfo,
+    },
+    rules::{
+        normalize_client_config, resolve_activity,
+        should_capture_foreground_snapshot_for_reporting, should_capture_media_for_reporting,
+        should_capture_process_name_for_reporting, should_capture_window_title_for_reporting,
+    },
 };
 
 const MAX_LOGS: usize = 20;
@@ -264,14 +269,18 @@ fn run_reporter_loop(
     while !stop_flag.load(Ordering::SeqCst) {
         let mut iteration_had_error = false;
 
-        let foreground = get_foreground_snapshot_for_reporting(
-            should_capture_process_name(&config),
-            config.report_window_title,
-        );
+        let foreground = if should_capture_foreground_snapshot_for_reporting(&config) {
+            get_foreground_snapshot_for_reporting(
+                should_capture_process_name_for_reporting(&config),
+                should_capture_window_title_for_reporting(&config),
+            )
+        } else {
+            Ok(ForegroundSnapshot::default())
+        };
 
         match foreground {
             Ok(snapshot) => {
-                let media = if config.report_media || config.report_play_source {
+                let media = if should_capture_media_for_reporting(&config) {
                     match get_now_playing() {
                         Ok(media) => {
                             last_media_error = None;
@@ -303,7 +312,8 @@ fn run_reporter_loop(
 
                 match resolve_activity(&config, &snapshot, &media) {
                     Some(resolved) => {
-                        let current_activity = build_reporter_activity(&config, &resolved, &media);
+                        let current_activity =
+                            build_reporter_activity(&config, &snapshot, &resolved, &media);
                         update_snapshot(&state, Some(current_activity.clone()), None, None, run_id);
 
                         let same_as_last = last_signature
@@ -407,19 +417,9 @@ fn run_reporter_loop(
     mark_stopped(&state, None, run_id);
 }
 
-fn should_capture_process_name(config: &ClientConfig) -> bool {
-    config.report_foreground_app
-        || config.discord_smart_show_app_name
-        || config.app_message_rules_show_process_name
-        || !config.app_message_rules.is_empty()
-        || !config.app_name_only_list.is_empty()
-        || matches!(config.app_filter_mode, AppFilterMode::Whitelist)
-        || !config.app_blacklist.is_empty()
-        || !config.app_whitelist.is_empty()
-}
-
 fn build_reporter_activity(
     config: &ClientConfig,
+    snapshot: &ForegroundSnapshot,
     resolved: &crate::rules::ResolvedActivity,
     media: &MediaInfo,
 ) -> ReporterActivity {
@@ -427,6 +427,7 @@ fn build_reporter_activity(
     ReporterActivity {
         process_name: resolved.process_name.clone(),
         process_title: resolved.process_title.clone(),
+        raw_process_title: non_empty_string(&snapshot.process_title),
         media_title: if media_reportable {
             non_empty_string(&media.title)
         } else {

@@ -27,7 +27,7 @@ ActivityPing is a Tauri desktop app that watches foreground apps, window titles,
 4. 🚦 App blacklist and whitelist filters
 5. 🙈 Name-only masking for privacy-sensitive apps
 6. 🎵 Media source blocking for hiding selected playback providers
-7. ✍️ Custom Discord templates with tokens like `{activity}`, `{context}`, and `{rule}`
+7. ✍️ Custom Discord templates and reusable presets with tokens like `{activity}`, `{context}`, and `{rule}`
 8. 🖼️ Optional app icon and music artwork upload pipeline for Discord images
 9. 🧰 Tray support, launch-on-startup, and runtime auto-start
 10. 🩺 Platform self-test and permission helpers for desktop capture

@@ -20,6 +20,7 @@ use crate::models::PlatformSelfTestResult;
 const COMMAND_TIMEOUT: Duration = Duration::from_millis(1500);
 const COMMAND_POLL_STEP: Duration = Duration::from_millis(100);
 const NOWPLAYING_CLI: &str = "nowplaying-cli";
+const APP_ICON_RENDER_SIZE: i32 = 256;
 const NOWPLAYING_CLI_FALLBACK_PATHS: [&str; 2] = [
     "/opt/homebrew/bin/nowplaying-cli",
     "/usr/local/bin/nowplaying-cli",
@@ -29,7 +30,10 @@ unsafe extern "C" {
     fn waken_frontmost_app_name() -> *mut c_char;
     fn waken_frontmost_app_bundle_identifier() -> *mut c_char;
     fn waken_frontmost_window_title() -> *mut c_char;
-    fn waken_bundle_icon_png_base64(bundle_identifier: *const c_char) -> *mut c_char;
+    fn waken_bundle_icon_png_base64(
+        bundle_identifier: *const c_char,
+        target_size: i32,
+    ) -> *mut c_char;
     fn waken_bundle_display_name(bundle_identifier: *const c_char) -> *mut c_char;
     fn waken_accessibility_is_trusted() -> bool;
     fn waken_request_accessibility_permission() -> bool;
@@ -280,13 +284,18 @@ fn read_bundle_icon(bundle_identifier: &str) -> Option<super::MediaArtwork> {
     }
 
     let c_bundle_identifier = CString::new(cache_key).ok()?;
-    let icon =
-        read_bridge_string_with_input(waken_bundle_icon_png_base64, c_bundle_identifier.as_c_str())
-            .and_then(|value| decode_base64_image_payload(&value))
-            .map(|bytes| super::MediaArtwork {
-                bytes,
-                content_type: "image/png".to_string(),
-            });
+    let ptr =
+        unsafe { waken_bundle_icon_png_base64(c_bundle_identifier.as_ptr(), APP_ICON_RENDER_SIZE) };
+    let icon = if ptr.is_null() {
+        None
+    } else {
+        let decoded = unsafe { CStr::from_ptr(ptr) }.to_string_lossy().to_string();
+        unsafe { waken_string_free(ptr) };
+        decode_base64_image_payload(&decoded).map(|bytes| super::MediaArtwork {
+            bytes,
+            content_type: "image/png".to_string(),
+        })
+    };
 
     source_icon_cache()
         .lock()

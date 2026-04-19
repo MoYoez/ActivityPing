@@ -15,7 +15,8 @@ use crate::{
 
 const APP_STATE_FILE_NAME: &str = "client-state.json";
 const DEFAULT_LOCALE: &str = "en-US";
-const MAX_HISTORY_RECORDS: usize = 3;
+const MIN_HISTORY_LIMIT: usize = 1;
+const MAX_HISTORY_LIMIT: usize = 50;
 
 fn app_state_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
@@ -38,8 +39,19 @@ fn normalize_state(payload: &mut AppStatePayload) {
         payload.locale = DEFAULT_LOCALE.to_string();
     }
     normalize_client_config(&mut payload.config);
-    payload.app_history = normalize_app_history(&payload.app_history);
-    payload.play_source_history = normalize_play_source_history(&payload.play_source_history);
+    let history_record_limit = normalize_history_limit(payload.config.capture_history_record_limit);
+    let history_title_limit = normalize_history_limit(payload.config.capture_history_title_limit);
+    payload.app_history = normalize_app_history(
+        &payload.app_history,
+        history_record_limit,
+        history_title_limit,
+    );
+    payload.play_source_history =
+        normalize_play_source_history(&payload.play_source_history, history_record_limit);
+}
+
+fn normalize_history_limit(value: u32) -> usize {
+    (value as usize).clamp(MIN_HISTORY_LIMIT, MAX_HISTORY_LIMIT)
 }
 
 fn normalize_optional_string(value: &Option<String>) -> Option<String> {
@@ -50,7 +62,11 @@ fn normalize_optional_string(value: &Option<String>) -> Option<String> {
         .map(str::to_string)
 }
 
-fn normalize_app_history(values: &[AppHistoryEntry]) -> Vec<AppHistoryEntry> {
+fn normalize_app_history(
+    values: &[AppHistoryEntry],
+    record_limit: usize,
+    title_limit: usize,
+) -> Vec<AppHistoryEntry> {
     let mut result = Vec::new();
     let mut seen = HashSet::new();
 
@@ -66,10 +82,15 @@ fn normalize_app_history(values: &[AppHistoryEntry]) -> Vec<AppHistoryEntry> {
         result.push(AppHistoryEntry {
             process_name: process_name.to_string(),
             process_title: normalize_optional_string(&value.process_title),
+            process_titles: normalize_title_history(
+                &value.process_titles,
+                &value.process_title,
+                title_limit,
+            ),
             status_text: normalize_optional_string(&value.status_text),
             updated_at: normalize_optional_string(&value.updated_at),
         });
-        if result.len() >= MAX_HISTORY_RECORDS {
+        if result.len() >= record_limit {
             break;
         }
     }
@@ -77,7 +98,37 @@ fn normalize_app_history(values: &[AppHistoryEntry]) -> Vec<AppHistoryEntry> {
     result
 }
 
-fn normalize_play_source_history(values: &[PlaySourceHistoryEntry]) -> Vec<PlaySourceHistoryEntry> {
+fn normalize_title_history(
+    values: &[String],
+    fallback: &Option<String>,
+    limit: usize,
+) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut seen = HashSet::new();
+
+    for value in values
+        .iter()
+        .map(Some)
+        .chain(std::iter::once(fallback.as_ref()))
+        .flatten()
+    {
+        let trimmed = value.trim();
+        if trimmed.is_empty() || !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        result.push(trimmed.to_string());
+        if result.len() >= limit {
+            break;
+        }
+    }
+
+    result
+}
+
+fn normalize_play_source_history(
+    values: &[PlaySourceHistoryEntry],
+    record_limit: usize,
+) -> Vec<PlaySourceHistoryEntry> {
     let mut result = Vec::new();
     let mut seen = HashSet::new();
 
@@ -97,7 +148,7 @@ fn normalize_play_source_history(values: &[PlaySourceHistoryEntry]) -> Vec<PlayS
             media_summary: normalize_optional_string(&value.media_summary),
             updated_at: normalize_optional_string(&value.updated_at),
         });
-        if result.len() >= MAX_HISTORY_RECORDS {
+        if result.len() >= record_limit {
             break;
         }
     }

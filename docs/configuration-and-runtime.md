@@ -18,7 +18,7 @@ ActivityPing exposes processed activity in two places:
 
 ## Artwork Uploads
 
-If app artwork or music artwork is enabled, ActivityPing converts images to 128x128 JPEG and uploads them through your configured uploader service. The uploader must return a public image URL that Discord can fetch.  (SO WHY THEY DONT ACCEPT BASE64 IMG??????)
+If app artwork or music artwork is enabled, ActivityPing normalizes images before uploading them through your configured uploader service. App icons stay PNG so transparency is preserved. Music artwork is re-encoded as JPEG. Both are normalized around a 256px target before upload. The uploader must return a public image URL that Discord can fetch.
 
 If you do not need image-rich Rich Presence, leave artwork uploads disabled.
 
@@ -33,17 +33,19 @@ ActivityPing sends an HTTP `POST` request to your configured uploader URL with:
 Before sending, ActivityPing:
 
 - decodes the original artwork
-- resizes it to fit within `128x128`
-- re-encodes it as JPEG
+- keeps app icons as PNG while preserving transparency
+- resizes music artwork to fit within `256x256`
+- re-encodes music artwork as JPEG
+- keeps the final uploaded payload within roughly `30 KB`
 - wraps it as a data URL
 
 Request JSON:
 
 ```json
 {
-  "base64": "data:image/jpeg;base64,...",
-  "imageBase64": "data:image/jpeg;base64,...",
-  "fileName": "etag.jpg",
+  "base64": "data:image/png;base64,...",
+  "imageBase64": "data:image/png;base64,...",
+  "fileName": "etag.png",
   "expiresIn": 3600
 }
 ```
@@ -51,7 +53,8 @@ Request JSON:
 Notes:
 
 - `base64` and `imageBase64` currently contain the same value
-- `fileName` is the generated cache key with a `.jpg` suffix
+- app icons use a PNG data URL and `.png` file name
+- music artwork uses a JPEG data URL and `.jpg` file name
 - `expiresIn` is the requested URL lifetime in seconds
 
 ### Accepted Response Format
@@ -107,6 +110,6 @@ It:
 
 - accepts the exact JSON payload ActivityPing sends
 - optionally verifies a bearer token
-- stores the JPEG on disk
+- stores the uploaded image on disk
 - returns a public URL in the format ActivityPing accepts
 - serves saved files from `/files/<name>`

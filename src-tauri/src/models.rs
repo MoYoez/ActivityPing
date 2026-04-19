@@ -45,6 +45,18 @@ pub fn default_discord_activity_type() -> DiscordActivityType {
     DiscordActivityType::default()
 }
 
+pub fn default_discord_status_display() -> DiscordStatusDisplay {
+    DiscordStatusDisplay::Name
+}
+
+pub fn default_discord_app_name_mode() -> DiscordAppNameMode {
+    DiscordAppNameMode::Default
+}
+
+pub fn default_discord_custom_app_name() -> String {
+    String::new()
+}
+
 pub fn default_discord_smart_enable_music_countdown() -> bool {
     true
 }
@@ -69,8 +81,20 @@ pub fn default_discord_artwork_worker_token() -> String {
     String::new()
 }
 
+pub fn default_discord_use_custom_addons_override() -> bool {
+    false
+}
+
 pub fn default_capture_reported_apps_enabled() -> bool {
     true
+}
+
+pub fn default_capture_history_record_limit() -> u32 {
+    3
+}
+
+pub fn default_capture_history_title_limit() -> u32 {
+    5
 }
 
 pub fn default_app_message_rules_show_process_name() -> bool {
@@ -113,6 +137,24 @@ pub enum DiscordActivityType {
     Competing,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscordStatusDisplay {
+    Name,
+    State,
+    Details,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscordAppNameMode {
+    Default,
+    Song,
+    Artist,
+    Album,
+    Custom,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppMessageTitleRule {
@@ -133,6 +175,83 @@ pub struct AppMessageRuleGroup {
     pub default_text: String,
     #[serde(default)]
     pub title_rules: Vec<AppMessageTitleRule>,
+    #[serde(default)]
+    pub buttons: Vec<DiscordRichPresenceButtonConfig>,
+    #[serde(default)]
+    pub party_id: String,
+    #[serde(default)]
+    pub party_size_current: Option<u32>,
+    #[serde(default)]
+    pub party_size_max: Option<u32>,
+    #[serde(default)]
+    pub join_secret: String,
+    #[serde(default)]
+    pub spectate_secret: String,
+    #[serde(default)]
+    pub match_secret: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordRichPresenceButtonConfig {
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordCustomPreset {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default = "default_discord_activity_type")]
+    pub activity_type: DiscordActivityType,
+    #[serde(default = "default_discord_status_display")]
+    pub status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_app_name_mode")]
+    pub app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub custom_app_name: String,
+    #[serde(default)]
+    pub details_format: String,
+    #[serde(default)]
+    pub state_format: String,
+    #[serde(default)]
+    pub buttons: Vec<DiscordRichPresenceButtonConfig>,
+    #[serde(default)]
+    pub party_id: String,
+    #[serde(default)]
+    pub party_size_current: Option<u32>,
+    #[serde(default)]
+    pub party_size_max: Option<u32>,
+    #[serde(default)]
+    pub join_secret: String,
+    #[serde(default)]
+    pub spectate_secret: String,
+    #[serde(default)]
+    pub match_secret: String,
+}
+
+impl Default for DiscordCustomPreset {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            activity_type: default_discord_activity_type(),
+            status_display: default_discord_status_display(),
+            app_name_mode: default_discord_app_name_mode(),
+            custom_app_name: default_discord_custom_app_name(),
+            details_format: String::new(),
+            state_format: String::new(),
+            buttons: Vec::new(),
+            party_id: String::new(),
+            party_size_current: None,
+            party_size_max: None,
+            join_secret: String::new(),
+            spectate_secret: String::new(),
+            match_secret: String::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,6 +326,36 @@ pub struct ClientConfig {
     pub discord_report_mode: DiscordReportMode,
     #[serde(default = "default_discord_activity_type")]
     pub discord_activity_type: DiscordActivityType,
+    #[serde(default, alias = "discordStatusDisplay", skip_serializing)]
+    pub legacy_discord_status_display: Option<DiscordStatusDisplay>,
+    #[serde(default, alias = "discordAppNameMode", skip_serializing)]
+    pub legacy_discord_app_name_mode: Option<DiscordAppNameMode>,
+    #[serde(default, alias = "discordCustomAppName", skip_serializing)]
+    pub legacy_discord_custom_app_name: Option<String>,
+    #[serde(default = "default_discord_status_display")]
+    pub discord_smart_status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_app_name_mode")]
+    pub discord_smart_app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub discord_smart_custom_app_name: String,
+    #[serde(default = "default_discord_status_display")]
+    pub discord_music_status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_app_name_mode")]
+    pub discord_music_app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub discord_music_custom_app_name: String,
+    #[serde(default = "default_discord_status_display")]
+    pub discord_app_status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_app_name_mode")]
+    pub discord_app_app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub discord_app_custom_app_name: String,
+    #[serde(default = "default_discord_status_display")]
+    pub discord_custom_mode_status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_app_name_mode")]
+    pub discord_custom_mode_app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub discord_custom_mode_custom_app_name: String,
     #[serde(default = "default_discord_smart_enable_music_countdown")]
     pub discord_smart_enable_music_countdown: bool,
     #[serde(default = "default_discord_smart_show_app_name")]
@@ -226,9 +375,31 @@ pub struct ClientConfig {
     #[serde(default = "default_discord_state_format")]
     pub discord_state_format: String,
     #[serde(default)]
+    pub discord_custom_buttons: Vec<DiscordRichPresenceButtonConfig>,
+    #[serde(default)]
+    pub discord_custom_party_id: String,
+    #[serde(default)]
+    pub discord_custom_party_size_current: Option<u32>,
+    #[serde(default)]
+    pub discord_custom_party_size_max: Option<u32>,
+    #[serde(default)]
+    pub discord_custom_join_secret: String,
+    #[serde(default)]
+    pub discord_custom_spectate_secret: String,
+    #[serde(default)]
+    pub discord_custom_match_secret: String,
+    #[serde(default = "default_discord_use_custom_addons_override")]
+    pub discord_use_custom_addons_override: bool,
+    #[serde(default, alias = "discordCustomRules")]
+    pub discord_custom_presets: Vec<DiscordCustomPreset>,
+    #[serde(default)]
     pub launch_on_startup: bool,
     #[serde(default = "default_capture_reported_apps_enabled")]
     pub capture_reported_apps_enabled: bool,
+    #[serde(default = "default_capture_history_record_limit")]
+    pub capture_history_record_limit: u32,
+    #[serde(default = "default_capture_history_title_limit")]
+    pub capture_history_title_limit: u32,
     #[serde(default)]
     pub app_message_rules: Vec<AppMessageRuleGroup>,
     #[serde(default = "default_app_message_rules_show_process_name")]
@@ -261,6 +432,21 @@ impl Default for ClientConfig {
             discord_application_id: default_discord_application_id(),
             discord_report_mode: DiscordReportMode::default(),
             discord_activity_type: default_discord_activity_type(),
+            legacy_discord_status_display: None,
+            legacy_discord_app_name_mode: None,
+            legacy_discord_custom_app_name: None,
+            discord_smart_status_display: default_discord_status_display(),
+            discord_smart_app_name_mode: default_discord_app_name_mode(),
+            discord_smart_custom_app_name: default_discord_custom_app_name(),
+            discord_music_status_display: default_discord_status_display(),
+            discord_music_app_name_mode: default_discord_app_name_mode(),
+            discord_music_custom_app_name: default_discord_custom_app_name(),
+            discord_app_status_display: default_discord_status_display(),
+            discord_app_app_name_mode: default_discord_app_name_mode(),
+            discord_app_custom_app_name: default_discord_custom_app_name(),
+            discord_custom_mode_status_display: default_discord_status_display(),
+            discord_custom_mode_app_name_mode: default_discord_app_name_mode(),
+            discord_custom_mode_custom_app_name: default_discord_custom_app_name(),
             discord_smart_enable_music_countdown: default_discord_smart_enable_music_countdown(),
             discord_smart_show_app_name: default_discord_smart_show_app_name(),
             legacy_discord_use_media_artwork: false,
@@ -270,8 +456,19 @@ impl Default for ClientConfig {
             discord_artwork_worker_token: default_discord_artwork_worker_token(),
             discord_details_format: default_discord_details_format(),
             discord_state_format: default_discord_state_format(),
+            discord_custom_buttons: Vec::new(),
+            discord_custom_party_id: String::new(),
+            discord_custom_party_size_current: None,
+            discord_custom_party_size_max: None,
+            discord_custom_join_secret: String::new(),
+            discord_custom_spectate_secret: String::new(),
+            discord_custom_match_secret: String::new(),
+            discord_use_custom_addons_override: default_discord_use_custom_addons_override(),
+            discord_custom_presets: Vec::new(),
             launch_on_startup: false,
             capture_reported_apps_enabled: default_capture_reported_apps_enabled(),
+            capture_history_record_limit: default_capture_history_record_limit(),
+            capture_history_title_limit: default_capture_history_title_limit(),
             app_message_rules: Vec::new(),
             app_message_rules_show_process_name: default_app_message_rules_show_process_name(),
             app_filter_mode: AppFilterMode::default(),
@@ -280,6 +477,18 @@ impl Default for ClientConfig {
             app_name_only_list: Vec::new(),
             media_play_source_blocklist: Vec::new(),
         }
+    }
+}
+
+impl Default for DiscordStatusDisplay {
+    fn default() -> Self {
+        Self::Name
+    }
+}
+
+impl Default for DiscordAppNameMode {
+    fn default() -> Self {
+        Self::Default
     }
 }
 
@@ -303,6 +512,8 @@ pub struct AppHistoryEntry {
     pub process_name: String,
     #[serde(default)]
     pub process_title: Option<String>,
+    #[serde(default)]
+    pub process_titles: Vec<String>,
     #[serde(default)]
     pub status_text: Option<String>,
     #[serde(default)]
@@ -450,6 +661,8 @@ pub struct ReporterActivity {
     #[serde(default)]
     pub process_title: Option<String>,
     #[serde(default)]
+    pub raw_process_title: Option<String>,
+    #[serde(default)]
     pub media_title: Option<String>,
     #[serde(default)]
     pub media_artist: Option<String>,
@@ -524,6 +737,8 @@ pub struct DiscordPresenceSnapshot {
 #[serde(rename_all = "camelCase")]
 pub struct DiscordDebugPayload {
     #[serde(default)]
+    pub activity_name: Option<String>,
+    #[serde(default)]
     pub details: String,
     #[serde(default)]
     pub state: Option<String>,
@@ -535,6 +750,8 @@ pub struct DiscordDebugPayload {
     pub report_mode_applied: String,
     #[serde(default)]
     pub activity_type: String,
+    #[serde(default)]
+    pub status_display_type: Option<String>,
     #[serde(default)]
     pub started_at_millis: Option<i64>,
     #[serde(default)]

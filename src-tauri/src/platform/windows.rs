@@ -39,7 +39,7 @@ use windows::{
             Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON},
             WindowsAndMessaging::{
                 DestroyIcon, DrawIconEx, GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW,
-                GetWindowThreadProcessId, DI_NORMAL,
+                GetWindowThreadProcessId, PrivateExtractIconsW, DI_NORMAL, HICON,
             },
         },
     },
@@ -48,7 +48,7 @@ use windows::{
 use super::{build_self_test_result, localized_text, make_probe, ForegroundSnapshot, MediaInfo};
 use crate::models::PlatformSelfTestResult;
 
-const SOURCE_ICON_SIZE: i32 = 128;
+const APP_ICON_SIZE: i32 = 256;
 
 fn source_icon_cache() -> &'static Mutex<HashMap<String, Option<super::MediaArtwork>>> {
     static CACHE: OnceLock<Mutex<HashMap<String, Option<super::MediaArtwork>>>> = OnceLock::new();
@@ -328,7 +328,7 @@ pub fn get_foreground_app_icon() -> Result<Option<super::MediaArtwork>, String> 
         return Ok(cached);
     }
 
-    let icon = render_executable_icon_png(cache_key)
+    let icon = render_executable_icon_png(cache_key, APP_ICON_SIZE)
         .ok()
         .and_then(|bytes| {
             if bytes.is_empty() {
@@ -392,8 +392,8 @@ fn read_packaged_app_icon(source_app_id: &str) -> Option<super::MediaArtwork> {
     let display_info = app_info.DisplayInfo().ok()?;
     let logo_stream = display_info
         .GetLogo(Size {
-            Width: SOURCE_ICON_SIZE as f32,
-            Height: SOURCE_ICON_SIZE as f32,
+            Width: APP_ICON_SIZE as f32,
+            Height: APP_ICON_SIZE as f32,
         })
         .ok()?;
 
@@ -406,7 +406,7 @@ fn read_process_app_icon(source_app_id: &str) -> Result<Option<super::MediaArtwo
         Some(path) => path,
         None => return Ok(None),
     };
-    let bytes = render_executable_icon_png(&executable_path)?;
+    let bytes = render_executable_icon_png(&executable_path, APP_ICON_SIZE)?;
     if bytes.is_empty() {
         return Ok(None);
     }
@@ -565,7 +565,13 @@ fn utf16z_to_string(buffer: &[u16]) -> String {
 }
 
 #[cfg(target_os = "windows")]
-fn render_executable_icon_png(executable_path: &str) -> Result<Vec<u8>, String> {
+fn render_executable_icon_png(executable_path: &str, target_size: i32) -> Result<Vec<u8>, String> {
+    if let Some(hicon) = extract_executable_icon(executable_path, target_size) {
+        let render_result = render_hicon_png(hicon, target_size);
+        let _ = unsafe { DestroyIcon(hicon) };
+        return render_result;
+    }
+
     let wide_path = encode_wide(executable_path);
     let mut file_info = SHFILEINFOW::default();
     let result = unsafe {
@@ -582,15 +588,39 @@ fn render_executable_icon_png(executable_path: &str) -> Result<Vec<u8>, String> 
     }
 
     let hicon = file_info.hIcon;
-    let render_result = render_hicon_png(hicon);
+    let render_result = render_hicon_png(hicon, target_size);
     let _ = unsafe { DestroyIcon(hicon) };
     render_result
 }
 
 #[cfg(target_os = "windows")]
-fn render_hicon_png(
-    hicon: windows::Win32::UI::WindowsAndMessaging::HICON,
-) -> Result<Vec<u8>, String> {
+fn extract_executable_icon(executable_path: &str, target_size: i32) -> Option<HICON> {
+    let wide_path = encode_wide(executable_path);
+    if wide_path.len() > MAX_PATH as usize {
+        return None;
+    }
+
+    let mut fixed_path = [0u16; MAX_PATH as usize];
+    let path_len = wide_path.len().min(fixed_path.len());
+    fixed_path[..path_len].copy_from_slice(&wide_path[..path_len]);
+
+    let mut icons = [HICON::default(); 1];
+    let extracted = unsafe {
+        PrivateExtractIconsW(
+            &fixed_path,
+            0,
+            target_size,
+            target_size,
+            Some(&mut icons),
+            None,
+            0,
+        )
+    };
+    (extracted > 0 && !icons[0].is_invalid()).then_some(icons[0])
+}
+
+#[cfg(target_os = "windows")]
+fn render_hicon_png(hicon: HICON, target_size: i32) -> Result<Vec<u8>, String> {
     let screen_dc = unsafe { GetDC(HWND(std::ptr::null_mut())) };
     if screen_dc.is_invalid() {
         return Err("Failed to create the screen drawing context.".to_string());
@@ -604,8 +634,8 @@ fn render_hicon_png(
 
     let mut bitmap_info = BITMAPINFO::default();
     bitmap_info.bmiHeader.biSize = size_of::<BITMAPINFOHEADER>() as u32;
-    bitmap_info.bmiHeader.biWidth = SOURCE_ICON_SIZE;
-    bitmap_info.bmiHeader.biHeight = -SOURCE_ICON_SIZE;
+    bitmap_info.bmiHeader.biWidth = target_size;
+    bitmap_info.bmiHeader.biHeight = -target_size;
     bitmap_info.bmiHeader.biPlanes = 1;
     bitmap_info.bmiHeader.biBitCount = 32;
     bitmap_info.bmiHeader.biCompression = BI_RGB.0;
@@ -630,8 +660,8 @@ fn render_hicon_png(
             0,
             0,
             hicon,
-            SOURCE_ICON_SIZE,
-            SOURCE_ICON_SIZE,
+            target_size,
+            target_size,
             0,
             None,
             DI_NORMAL,
@@ -648,8 +678,8 @@ fn render_hicon_png(
         return Err("The app icon bitmap buffer is empty.".to_string());
     }
 
-    let pixel_len = (SOURCE_ICON_SIZE as usize)
-        .saturating_mul(SOURCE_ICON_SIZE as usize)
+    let pixel_len = (target_size as usize)
+        .saturating_mul(target_size as usize)
         .saturating_mul(4);
     let raw_bgra = unsafe { std::slice::from_raw_parts(bits_ptr as *const u8, pixel_len) };
     let mut rgba = raw_bgra.to_vec();
@@ -663,8 +693,8 @@ fn render_hicon_png(
     PngEncoder::new(&mut png)
         .write_image(
             &rgba,
-            SOURCE_ICON_SIZE as u32,
-            SOURCE_ICON_SIZE as u32,
+            target_size as u32,
+            target_size as u32,
             ColorType::Rgba8.into(),
         )
         .map_err(|error| format!("Failed to encode the app icon PNG: {error}"))?;

@@ -546,11 +546,13 @@ body::-webkit-scrollbar,
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-items: start;
 }
 
 .history-record-panel {
   display: grid;
   gap: 10px;
+  align-content: start;
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--color-base-300);
@@ -579,6 +581,8 @@ body::-webkit-scrollbar,
 .history-record-list {
   display: grid;
   gap: 8px;
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
 .history-record-item {
@@ -598,6 +602,51 @@ body::-webkit-scrollbar,
 
 .history-record-item span {
   color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+}
+
+.history-record-time {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.history-source-item {
+  gap: 4px;
+}
+
+.history-source-label {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.history-source-title {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.history-source-meta {
+  line-height: 1.4;
+}
+
+.history-title-list {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.history-title-list code {
+  min-width: 0;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--color-base-300) 48%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 76%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .platform-probe-list {
@@ -747,7 +796,7 @@ body::-webkit-scrollbar,
 }
 
 .toast {
-  z-index: 90;
+  z-index: 1200;
   width: min(380px, calc(100vw - 36px));
 }
 
@@ -844,6 +893,113 @@ body::-webkit-scrollbar,
 
 .list-editor .compact-empty {
   margin-top: 0;
+}
+
+.discord-option-help {
+  display: inline-flex;
+  align-items: center;
+}
+
+.discord-option-help-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.discord-option-help-trigger {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-base-300);
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--color-base-100) 82%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.discord-option-help-trigger:hover,
+.discord-option-help-trigger:focus-visible {
+  border-color: color-mix(in oklab, var(--color-primary) 55%, var(--color-base-300));
+  color: var(--color-base-content);
+  outline: none;
+}
+
+.discord-option-help-panel {
+  margin-top: 8px;
+}
+
+.discord-option-help-grid {
+  display: grid;
+  gap: 10px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.discord-option-help-grid p {
+  margin: 0;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.discord-template-token-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.discord-template-token-row > span {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.discord-advanced-summary::-webkit-details-marker {
+  display: none;
+}
+
+.discord-advanced-summary {
+  user-select: none;
+}
+
+.discord-advanced-summary-meta {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.discord-advanced-summary-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.discord-advanced-summary-hint-open {
+  display: none;
+}
+
+.discord-advanced-summary-caret {
+  transition: transform 0.18s ease;
+}
+
+.discord-advanced-panel[open] .discord-advanced-summary-hint-closed {
+  display: none;
+}
+
+.discord-advanced-panel[open] .discord-advanced-summary-hint-open {
+  display: inline;
+}
+
+.discord-advanced-panel[open] .discord-advanced-summary-caret {
+  transform: rotate(180deg);
 }
 
 .list-editor-input {
@@ -986,6 +1142,10 @@ body::-webkit-scrollbar,
 
   .list-editor-summary {
     flex-direction: column;
+  }
+
+  .discord-option-help-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .pagination-row,
