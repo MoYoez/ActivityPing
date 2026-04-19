@@ -804,6 +804,7 @@ fn build_music_only_activity_name(config: &ClientConfig, media: &MediaInfo) -> O
         DiscordAppNameMode::Song => non_empty_presence_value(media.title.as_str()),
         DiscordAppNameMode::Artist => non_empty_presence_value(media.artist.as_str()),
         DiscordAppNameMode::Album => non_empty_presence_value(media.album.as_str()),
+        DiscordAppNameMode::Source => current_media_source_name(media),
         DiscordAppNameMode::Custom => non_empty_presence_value(current_custom_app_name(config)),
     }
 }
@@ -818,8 +819,13 @@ fn build_custom_mode_activity_name(
         DiscordAppNameMode::Song
         | DiscordAppNameMode::Artist
         | DiscordAppNameMode::Album
+        | DiscordAppNameMode::Source
         | DiscordAppNameMode::Custom => build_music_only_activity_name(config, media),
     }
+}
+
+fn current_media_source_name(media: &MediaInfo) -> Option<String> {
+    non_empty_presence_value(media.source_app_id.as_str()).map(|value| fallback_app_name(&value))
 }
 
 fn primary_app_activity_name(config: &ClientConfig, resolved: &ResolvedActivity) -> Option<String> {
@@ -1476,6 +1482,21 @@ mod tests {
         let value = build_music_only_activity_name(&config, &media);
 
         assert_eq!(value, Some("My Custom App".to_string()));
+    }
+
+    #[test]
+    fn music_mode_can_use_media_source_for_activity_name() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            discord_music_app_name_mode: crate::models::DiscordAppNameMode::Source,
+            ..ClientConfig::default()
+        };
+        let mut media = sample_media();
+        media.source_app_id = "spotify.exe".into();
+
+        let value = build_music_only_activity_name(&config, &media);
+
+        assert_eq!(value, Some("Spotify".to_string()));
     }
 
     #[test]

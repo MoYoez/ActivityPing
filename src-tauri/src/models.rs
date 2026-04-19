@@ -53,6 +53,10 @@ pub fn default_discord_app_name_mode() -> DiscordAppNameMode {
     DiscordAppNameMode::Default
 }
 
+pub fn default_discord_music_app_name_mode() -> DiscordAppNameMode {
+    DiscordAppNameMode::Source
+}
+
 pub fn default_discord_custom_app_name() -> String {
     String::new()
 }
@@ -152,6 +156,8 @@ pub enum DiscordAppNameMode {
     Song,
     Artist,
     Album,
+    #[serde(rename = "source", alias = "media_source")]
+    Source,
     Custom,
 }
 
@@ -340,7 +346,7 @@ pub struct ClientConfig {
     pub discord_smart_custom_app_name: String,
     #[serde(default = "default_discord_status_display")]
     pub discord_music_status_display: DiscordStatusDisplay,
-    #[serde(default = "default_discord_app_name_mode")]
+    #[serde(default = "default_discord_music_app_name_mode")]
     pub discord_music_app_name_mode: DiscordAppNameMode,
     #[serde(default = "default_discord_custom_app_name")]
     pub discord_music_custom_app_name: String,
@@ -439,7 +445,7 @@ impl Default for ClientConfig {
             discord_smart_app_name_mode: default_discord_app_name_mode(),
             discord_smart_custom_app_name: default_discord_custom_app_name(),
             discord_music_status_display: default_discord_status_display(),
-            discord_music_app_name_mode: default_discord_app_name_mode(),
+            discord_music_app_name_mode: default_discord_music_app_name_mode(),
             discord_music_custom_app_name: default_discord_custom_app_name(),
             discord_app_status_display: default_discord_status_display(),
             discord_app_app_name_mode: default_discord_app_name_mode(),

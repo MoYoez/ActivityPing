@@ -224,9 +224,11 @@ function normalizeDiscordAppNameMode(
     mode === "song" ||
     mode === "artist" ||
     mode === "album" ||
+    mode === "source" ||
+    mode === "media_source" ||
     mode === "custom"
   ) {
-    return mode;
+    return mode === "media_source" ? "source" : mode;
   }
   return "default";
 }
@@ -296,7 +298,7 @@ export function normalizeClientConfig(config: ClientConfig): ClientConfig {
       config.discordMusicStatusDisplay ?? legacyConfig.discordMusicStatusDisplay ?? legacyGlobalStatusDisplay,
     ),
     discordMusicAppNameMode: normalizeDiscordAppNameMode(
-      config.discordMusicAppNameMode ?? legacyConfig.discordMusicAppNameMode ?? legacyGlobalAppNameMode,
+      config.discordMusicAppNameMode ?? legacyConfig.discordMusicAppNameMode ?? legacyGlobalAppNameMode ?? "source",
     ),
     discordMusicCustomAppName: String(
       config.discordMusicCustomAppName ?? legacyConfig.discordMusicCustomAppName ?? legacyGlobalCustomAppName ?? "",

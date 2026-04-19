@@ -102,7 +102,7 @@ export function defaultClientConfig(): ClientConfig {
     discordSmartAppNameMode: "default",
     discordSmartCustomAppName: "",
     discordMusicStatusDisplay: "name",
-    discordMusicAppNameMode: "default",
+    discordMusicAppNameMode: "source",
     discordMusicCustomAppName: "",
     discordAppStatusDisplay: "name",
     discordAppAppNameMode: "default",

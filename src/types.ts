@@ -3,7 +3,7 @@ export type AppFilterMode = "blacklist" | "whitelist";
 export type DiscordReportMode = "music" | "app" | "mixed" | "custom";
 export type DiscordActivityType = "playing" | "listening" | "watching" | "competing";
 export type DiscordStatusDisplay = "name" | "state" | "details";
-export type DiscordAppNameMode = "default" | "song" | "artist" | "album" | "custom";
+export type DiscordAppNameMode = "default" | "song" | "artist" | "album" | "source" | "custom";
 
 export interface ClientCapabilities {
   realtimeReporter: boolean;
