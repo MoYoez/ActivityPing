@@ -1,0 +1,289 @@
+.log-entry {
+  border-left-width: 3px;
+}
+
+.log-entry-clickable {
+  cursor: pointer;
+}
+
+.log-entry-clickable:hover,
+.log-entry-clickable:focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary) 28%, transparent);
+}
+
+.log-entry-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.log-entry-head strong,
+.log-entry p {
+  overflow-wrap: anywhere;
+}
+
+.log-entry-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.log-entry-actions span {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+}
+
+.log-entry p {
+  margin: 8px 0 0;
+}
+
+.rule-modal-body {
+  display: grid;
+  gap: 16px;
+}
+
+.modal-box {
+  max-height: calc(100vh - 48px);
+}
+
+.toast {
+  z-index: 1200;
+  width: min(380px, calc(100vw - 36px));
+}
+
+.toast .alert {
+  align-items: start;
+}
+
+.save-reminder {
+  width: 100%;
+}
+
+.save-reminder .card-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.save-reminder-copy {
+  display: flex;
+  min-width: 0;
+  gap: 10px;
+  align-items: center;
+}
+
+.save-reminder-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.notice-copy {
+  min-width: 0;
+}
+
+.notice-copy strong,
+.notice-copy span {
+  display: block;
+}
+
+.notice-copy strong {
+  overflow-wrap: normal;
+}
+
+.notice-copy span {
+  overflow-wrap: anywhere;
+}
+
+.notice-copy span {
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.suggestion-dropdown {
+  position: relative;
+}
+
+.suggestion-menu {
+  width: 100%;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.list-editor,
+.rule-list-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.list-editor-summary {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.list-editor-copy {
+  min-width: 0;
+}
+
+.list-editor-copy p {
+  margin: 6px 0 0;
+  min-width: 0;
+  color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.list-editor-summary .badge {
+  flex-shrink: 0;
+}
+
+.list-editor .compact-empty {
+  margin-top: 0;
+}
+
+.discord-option-help {
+  display: inline-flex;
+  align-items: center;
+}
+
+.discord-option-help-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.discord-option-help-trigger {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-base-300);
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--color-base-100) 82%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.discord-option-help-trigger:hover,
+.discord-option-help-trigger:focus-visible {
+  border-color: color-mix(in oklab, var(--color-primary) 55%, var(--color-base-300));
+  color: var(--color-base-content);
+  outline: none;
+}
+
+.discord-option-help-panel {
+  margin-top: 8px;
+}
+
+.discord-option-help-grid {
+  display: grid;
+  gap: 10px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.discord-option-help-grid p {
+  margin: 0;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.discord-template-token-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.discord-template-token-row > span {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.discord-advanced-summary::-webkit-details-marker {
+  display: none;
+}
+
+.discord-advanced-summary {
+  user-select: none;
+}
+
+.discord-advanced-summary-meta {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.discord-advanced-summary-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.discord-advanced-summary-hint-open {
+  display: none;
+}
+
+.discord-advanced-summary-caret {
+  transition: transform 0.18s ease;
+}
+
+.discord-advanced-panel[open] .discord-advanced-summary-hint-closed {
+  display: none;
+}
+
+.discord-advanced-panel[open] .discord-advanced-summary-hint-open {
+  display: inline;
+}
+
+.discord-advanced-panel[open] .discord-advanced-summary-caret {
+  transform: rotate(180deg);
+}
+
+.list-editor-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.btn {
+  letter-spacing: 0;
+  min-width: 0;
+  white-space: normal;
+}
+
+.input,
+.textarea,
+.select {
+  min-width: 0;
+}
+
+.content-header h2,
+.content-header p,
+.settings-group-head p,
+.rule-entry-copy p,
+.toggle-grid span,
+.radio-grid span,
+.notice-copy span {
+  overflow-wrap: anywhere;
+}
+

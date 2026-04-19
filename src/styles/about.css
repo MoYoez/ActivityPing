@@ -1,0 +1,64 @@
+.about-page {
+  display: grid;
+  width: min(720px, 100%);
+  gap: 18px;
+  padding: 4px 2px;
+}
+
+.about-identity {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.about-icon {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--color-base-300);
+  border-radius: 8px;
+  background: var(--color-base-100);
+}
+
+.about-copy {
+  min-width: 0;
+}
+
+.about-copy h3 {
+  margin: 4px 0 0;
+  font-size: 1.45rem;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.about-copy p:last-child {
+  margin: 8px 0 0;
+  color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+  line-height: 1.55;
+}
+
+.about-repo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--color-base-300);
+  border-bottom: 1px solid var(--color-base-300);
+}
+
+.about-repo strong {
+  font-weight: 700;
+}
+
+.about-repo span:last-child {
+  min-width: 0;
+  color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+

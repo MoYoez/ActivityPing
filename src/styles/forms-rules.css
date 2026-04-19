@@ -1,0 +1,168 @@
+.field-grid,
+.toggle-grid,
+.stat-grid,
+.radio-grid,
+.rules-utility-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.field-grid,
+.stat-grid,
+.compact-fields,
+.radio-grid,
+.rules-utility-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compact-toggles,
+.rules-toggles {
+  grid-template-columns: 1fr;
+}
+
+.field-grid label > span {
+  color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.field-span-2 {
+  grid-column: span 2;
+}
+
+.toggle-grid strong,
+.radio-grid strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.toggle-grid label > div,
+.radio-grid label > div {
+  min-width: 0;
+}
+
+.toggle-grid span,
+.radio-grid span {
+  color: color-mix(in oklab, var(--color-base-content) 66%, transparent);
+  line-height: 1.45;
+}
+
+.stat-grid > div > span {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat-grid > div > strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.empty-state {
+  padding: 14px;
+  border: 1px dashed var(--color-base-300);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-base-100) 58%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 64%, transparent);
+}
+
+.compact-empty {
+  margin-top: 12px;
+}
+
+.rules-shell {
+  display: grid;
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.rules-empty {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+}
+
+.rule-entry-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: end;
+}
+
+.rule-entry-copy strong {
+  display: block;
+  font-weight: 700;
+}
+
+.rule-entry-copy p {
+  margin: 8px 0 0;
+  color: color-mix(in oklab, var(--color-base-content) 66%, transparent);
+}
+
+.rule-entry-meta,
+.tag-list,
+.template-token-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.template-token-list {
+  margin-top: 0;
+}
+
+.discord-mode-layout {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.discord-mode-layout span,
+.token-toolbar-copy p {
+  color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+}
+
+.discord-custom-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.token-toolbar-copy strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.token-toolbar-copy p {
+  margin: 6px 0 0;
+  line-height: 1.45;
+}
+
+.discord-format-input-active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-primary) 42%, transparent);
+}
+
+.pagination-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+}
+
+.pagination-copy {
+  color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+

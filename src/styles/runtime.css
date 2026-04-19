@@ -1,0 +1,195 @@
+.runtime-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  gap: 14px;
+  min-height: 100%;
+  align-content: start;
+  align-items: start;
+}
+
+.runtime-prerequisite-card {
+  grid-column: 1 / -1;
+}
+
+.runtime-card {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.runtime-main-card {
+  align-self: start;
+}
+
+.runtime-log-card {
+  max-height: min(620px, calc(100vh - 150px));
+}
+
+.runtime-debug-card {
+  grid-column: 1 / -1;
+}
+
+.debug-json {
+  margin: 0;
+  max-height: min(60vh, 520px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--color-base-300);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-base-100) 72%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 88%, transparent);
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.runtime-log-feed {
+  min-height: 0;
+  max-height: clamp(220px, calc(100vh - 360px), 360px);
+  overflow: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+}
+
+.runtime-log-pagination {
+  padding-top: 0;
+}
+
+.history-record-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.history-record-panel {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--color-base-300);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-base-200) 62%, transparent);
+}
+
+.history-record-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.history-record-head strong {
+  font-weight: 700;
+}
+
+.history-record-head span,
+.history-record-item small {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.history-record-list {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  grid-auto-rows: max-content;
+}
+
+.history-record-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--color-base-100) 78%, transparent);
+}
+
+.history-record-item strong,
+.history-record-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.history-record-item span {
+  color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+}
+
+.history-record-time {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.history-source-item {
+  gap: 4px;
+}
+
+.history-source-label {
+  color: color-mix(in oklab, var(--color-base-content) 58%, transparent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.history-source-title {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.history-source-meta {
+  line-height: 1.4;
+}
+
+.history-title-list {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.history-title-list code {
+  min-width: 0;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--color-base-300) 48%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 76%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.platform-probe-list {
+  display: grid;
+  gap: 12px;
+}
+
+.platform-probe-card strong {
+  display: block;
+  font-weight: 700;
+}
+
+.platform-probe-card p {
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+
+.platform-probe-card ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.platform-probe-card li + li {
+  margin-top: 6px;
+}
+
+.platform-probe-badge-row {
+  margin-top: 10px;
+  display: flex;
+}
+

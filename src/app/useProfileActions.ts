@@ -1,0 +1,131 @@
+import {
+  CUSTOM_PRESET_PAGE_SIZE,
+} from "./appConstants";
+import {
+  buildPayload,
+  createDiscordCustomPresetFromConfig,
+  validateArtworkPublishing,
+  validateRuleRegex,
+} from "./appConfig";
+import { pageForIndex } from "./appFormatting";
+import { normalizeDiscordLineTemplate } from "../components/discord/discordOptions";
+import type { ViewSection } from "../components/pages/pageSections";
+import { saveAppState, setAutostartEnabled } from "../lib/api";
+import { normalizeClientConfig } from "../lib/rules";
+import type { NoticeTone } from "../store/appUiStore";
+import type { AppStatePayload, ClientConfig, ClientCapabilities, DiscordCustomPreset } from "../types";
+
+interface UseProfileActionsArgs {
+  capabilities: ClientCapabilities;
+  baseState: AppStatePayload;
+  config: ClientConfig;
+  notify: (tone: NoticeTone, title: string, detail: string) => void;
+  setActiveSection: (section: ViewSection) => void;
+  setBaseState: (payload: AppStatePayload) => void;
+  setConfig: (value: ClientConfig | ((current: ClientConfig) => ClientConfig)) => void;
+  setRulesImportOpen: (open: boolean) => void;
+  setRulesImportValue: (value: string) => void;
+  setCustomPresetPage: (page: number | ((current: number) => number)) => void;
+  setActiveCustomPresetIndex: (index: number | null) => void;
+  setCustomRulesDialogOpen: (open: boolean) => void;
+}
+
+export function useProfileActions({
+  capabilities,
+  baseState,
+  config,
+  notify,
+  setActiveSection,
+  setBaseState,
+  setConfig,
+  setRulesImportOpen,
+  setRulesImportValue,
+  setCustomPresetPage,
+  setActiveCustomPresetIndex,
+  setCustomRulesDialogOpen,
+}: UseProfileActionsArgs) {
+  async function persistPayload(payload: AppStatePayload, syncConfig: boolean) {
+    await saveAppState(payload);
+    setBaseState(payload);
+    if (syncConfig) setConfig(payload.config);
+  }
+
+  async function persist(nextConfig: ClientConfig, syncConfig = true) {
+    await persistPayload(buildPayload(baseState, nextConfig), syncConfig);
+  }
+
+  async function saveProfile(successTitle: string, successDetail: string) {
+    const normalized = normalizeClientConfig(config);
+    const regexError = validateRuleRegex(normalized);
+    if (regexError) {
+      notify("error", "Rules not saved", regexError);
+      return;
+    }
+    const artworkPublishingError = validateArtworkPublishing(normalized);
+    if (artworkPublishingError) {
+      setActiveSection("settings");
+      notify("warn", "Artwork publishing required", artworkPublishingError);
+      return;
+    }
+    try {
+      if (capabilities.autostart && normalized.launchOnStartup !== baseState.config.launchOnStartup) {
+        await setAutostartEnabled(normalized.launchOnStartup);
+      }
+      await persist(normalized);
+      notify("success", successTitle, successDetail);
+    } catch (error) {
+      notify(
+        "error",
+        "Save failed",
+        error instanceof Error ? error.message : "The current settings could not be saved.",
+      );
+    }
+  }
+
+  function discardDraftChanges() {
+    setConfig(normalizeClientConfig(baseState.config));
+    setRulesImportOpen(false);
+    setRulesImportValue("");
+    notify("info", "Draft reverted", "The current form was reset to the last saved settings.");
+  }
+
+  function saveCurrentCustomSettingsAsPreset() {
+    const nextPreset = createDiscordCustomPresetFromConfig(config);
+    const nextIndex = config.discordCustomPresets.length;
+    setConfig((current) => ({
+      ...current,
+      discordCustomPresets: [...current.discordCustomPresets, nextPreset],
+    }));
+    setCustomPresetPage(pageForIndex(nextIndex, CUSTOM_PRESET_PAGE_SIZE));
+    setActiveCustomPresetIndex(nextIndex);
+    setCustomRulesDialogOpen(true);
+  }
+
+  function applyDiscordCustomPreset(preset: DiscordCustomPreset) {
+    setConfig((current) => ({
+      ...current,
+      discordReportMode: "custom",
+      discordActivityType: preset.activityType,
+      discordCustomModeStatusDisplay: preset.statusDisplay,
+      discordCustomModeAppNameMode: preset.appNameMode,
+      discordCustomModeCustomAppName: preset.customAppName,
+      discordDetailsFormat: normalizeDiscordLineTemplate(preset.detailsFormat),
+      discordStateFormat: normalizeDiscordLineTemplate(preset.stateFormat),
+      discordCustomButtons: preset.buttons.map((button) => ({ ...button })),
+      discordCustomPartyId: preset.partyId,
+      discordCustomPartySizeCurrent: preset.partySizeCurrent ?? null,
+      discordCustomPartySizeMax: preset.partySizeMax ?? null,
+      discordCustomJoinSecret: preset.joinSecret,
+      discordCustomSpectateSecret: preset.spectateSecret,
+      discordCustomMatchSecret: preset.matchSecret,
+    }));
+  }
+
+  return {
+    persistPayload,
+    saveProfile,
+    discardDraftChanges,
+    saveCurrentCustomSettingsAsPreset,
+    applyDiscordCustomPreset,
+  };
+}
