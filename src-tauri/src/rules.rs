@@ -93,12 +93,13 @@ pub fn resolve_activity(
         .as_ref()
         .map(|value| is_media_source_blocked(config, value))
         .unwrap_or(false);
-    let play_source = if config.report_play_source && media.is_active() && !media_hidden {
+    let media_reportable = media.is_reportable(config.report_stopped_media);
+    let play_source = if config.report_play_source && media_reportable && !media_hidden {
         raw_play_source.clone()
     } else {
         None
     };
-    let media_summary = if config.report_media && media.is_active() && !media_hidden {
+    let media_summary = if config.report_media && media_reportable && !media_hidden {
         non_empty(media.summary().as_str())
     } else {
         None
@@ -287,12 +288,15 @@ fn build_discord_text(
         process_title,
         status_text,
         media,
-        if media.is_active() && config.report_play_source && !media_hidden {
+        if media.is_reportable(config.report_stopped_media)
+            && config.report_play_source
+            && !media_hidden
+        {
             Some(media.source_app_id.as_str())
         } else {
             None
         },
-        media.is_active() && !media_hidden,
+        media.is_reportable(config.report_stopped_media) && !media_hidden,
     );
     let state = render_discord_template(&config.discord_state_format, &values)
         .filter(|value| !value.is_empty());
@@ -396,7 +400,7 @@ fn build_smart_media_text(
     media: &MediaInfo,
     media_hidden: bool,
 ) -> Option<String> {
-    if !config.report_media || media_hidden || !media.is_active() {
+    if !config.report_media || media_hidden || !media.is_reportable(config.report_stopped_media) {
         return None;
     }
 
@@ -424,7 +428,7 @@ fn build_mixed_music_discord_text(
     media: &MediaInfo,
     media_hidden: bool,
 ) -> Option<(String, Option<String>)> {
-    if !config.report_media || media_hidden || !media.is_active() {
+    if !config.report_media || media_hidden || !media.is_reportable(config.report_stopped_media) {
         return None;
     }
 
@@ -450,7 +454,7 @@ fn build_music_discord_text(
     media: &MediaInfo,
     media_hidden: bool,
 ) -> Option<(String, Option<String>)> {
-    if !config.report_media || media_hidden || !media.is_active() {
+    if !config.report_media || media_hidden || !media.is_reportable(config.report_stopped_media) {
         return None;
     }
 
@@ -791,6 +795,32 @@ mod tests {
         let resolved = build_music_discord_text(&config, &media, false);
 
         assert_eq!(resolved, Some(("Track Name".to_string(), None)));
+    }
+
+    #[test]
+    fn music_mode_can_keep_paused_media_visible() {
+        let mut config = base_config();
+        config.report_stopped_media = true;
+        let mut media = sample_media();
+        media.is_playing = false;
+
+        let resolved = build_music_discord_text(&config, &media, false);
+
+        assert_eq!(
+            resolved,
+            Some(("Track Name".to_string(), Some("Artist Name".to_string())))
+        );
+    }
+
+    #[test]
+    fn music_mode_hides_paused_media_by_default() {
+        let config = base_config();
+        let mut media = sample_media();
+        media.is_playing = false;
+
+        let resolved = build_music_discord_text(&config, &media, false);
+
+        assert_eq!(resolved, None);
     }
 
     #[test]

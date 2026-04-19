@@ -358,6 +358,7 @@ function captureModeText(config: ClientConfig) {
   if (config.reportForegroundApp) parts.push("App");
   if (config.reportWindowTitle) parts.push("Title");
   if (config.reportMedia) parts.push("Media");
+  if (config.reportStoppedMedia) parts.push("Paused media");
   if (config.reportPlaySource) parts.push("Source");
   return parts.length > 0 ? parts.join(" + ") : "Capture disabled";
 }
@@ -2003,6 +2004,18 @@ function App() {
               />
             </label>
           ) : null}
+          <label className={TOGGLE_TILE_CLASS}>
+            <div>
+              <strong>Report paused media</strong>
+              <span>Keep the latest media visible after playback pauses or stops, with a frozen Discord song timer.</span>
+            </div>
+            <input
+              className="toggle toggle-primary"
+              type="checkbox"
+              checked={config.reportStoppedMedia}
+              onChange={(e) => update("reportStoppedMedia", e.currentTarget.checked)}
+            />
+          </label>
           <label className={TOGGLE_TILE_CLASS}>
             <div>
               <strong>Use app artwork</strong>

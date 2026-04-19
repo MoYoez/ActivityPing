@@ -109,6 +109,7 @@ export function normalizeClientConfig(config: ClientConfig): ClientConfig {
     reportForegroundApp: config.reportForegroundApp !== false,
     reportWindowTitle: config.reportWindowTitle !== false,
     reportMedia: config.reportMedia !== false,
+    reportStoppedMedia: Boolean(config.reportStoppedMedia),
     reportPlaySource: config.reportPlaySource !== false,
     discordApplicationId: String(config.discordApplicationId ?? "").trim(),
     discordReportMode: normalizeDiscordReportMode(config.discordReportMode),

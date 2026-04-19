@@ -93,6 +93,7 @@ export function defaultClientConfig(): ClientConfig {
     reportForegroundApp: true,
     reportWindowTitle: true,
     reportMedia: true,
+    reportStoppedMedia: false,
     reportPlaySource: true,
     discordApplicationId: "",
     discordReportMode: "mixed",

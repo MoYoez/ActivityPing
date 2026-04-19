@@ -30,6 +30,7 @@ export interface ClientConfig {
   reportForegroundApp: boolean;
   reportWindowTitle: boolean;
   reportMedia: boolean;
+  reportStoppedMedia: boolean;
   reportPlaySource: boolean;
   discordApplicationId: string;
   discordReportMode: DiscordReportMode;

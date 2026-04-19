@@ -303,7 +303,7 @@ fn run_reporter_loop(
 
                 match resolve_activity(&config, &snapshot, &media) {
                     Some(resolved) => {
-                        let current_activity = build_reporter_activity(&resolved, &media);
+                        let current_activity = build_reporter_activity(&config, &resolved, &media);
                         update_snapshot(&state, Some(current_activity.clone()), None, None, run_id);
 
                         let same_as_last = last_signature
@@ -419,34 +419,36 @@ fn should_capture_process_name(config: &ClientConfig) -> bool {
 }
 
 fn build_reporter_activity(
+    config: &ClientConfig,
     resolved: &crate::rules::ResolvedActivity,
     media: &MediaInfo,
 ) -> ReporterActivity {
+    let media_reportable = media.is_reportable(config.report_stopped_media);
     ReporterActivity {
         process_name: resolved.process_name.clone(),
         process_title: resolved.process_title.clone(),
-        media_title: if media.is_active() {
+        media_title: if media_reportable {
             non_empty_string(&media.title)
         } else {
             None
         },
-        media_artist: if media.is_active() {
+        media_artist: if media_reportable {
             non_empty_string(&media.artist)
         } else {
             None
         },
-        media_album: if media.is_active() {
+        media_album: if media_reportable {
             non_empty_string(&media.album)
         } else {
             None
         },
         media_summary: resolved.media_summary.clone(),
-        media_duration_ms: if media.is_active() {
+        media_duration_ms: if media_reportable {
             media.duration_ms
         } else {
             None
         },
-        media_position_ms: if media.is_active() {
+        media_position_ms: if media_reportable {
             media.position_ms
         } else {
             None

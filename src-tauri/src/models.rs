@@ -21,6 +21,10 @@ pub fn default_report_media() -> bool {
     true
 }
 
+pub fn default_report_stopped_media() -> bool {
+    false
+}
+
 pub fn default_report_play_source() -> bool {
     true
 }
@@ -191,6 +195,8 @@ pub struct ClientConfig {
     pub report_window_title: bool,
     #[serde(default = "default_report_media")]
     pub report_media: bool,
+    #[serde(default = "default_report_stopped_media")]
+    pub report_stopped_media: bool,
     #[serde(default = "default_report_play_source")]
     pub report_play_source: bool,
     #[serde(default, rename = "discordEnabled", skip_serializing)]
@@ -249,6 +255,7 @@ impl Default for ClientConfig {
             report_foreground_app: default_report_foreground_app(),
             report_window_title: default_report_window_title(),
             report_media: default_report_media(),
+            report_stopped_media: default_report_stopped_media(),
             report_play_source: default_report_play_source(),
             legacy_discord_enabled: false,
             discord_application_id: default_discord_application_id(),

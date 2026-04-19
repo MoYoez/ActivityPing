@@ -4,7 +4,7 @@ use std::{
         Arc, Mutex,
     },
     thread::{self, JoinHandle},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use chrono::Utc;
@@ -26,6 +26,7 @@ use crate::{
 
 const DEFAULT_SYNC_INTERVAL: Duration = Duration::from_secs(5);
 const MAX_ERROR_BACKOFF_MS: u64 = 30_000;
+const TIMESTAMP_UPDATE_THRESHOLD_MS: i64 = 100;
 const WORKER_JOIN_WAIT_TIMEOUT: Duration = Duration::from_secs(2);
 const WORKER_JOIN_POLL_STEP: Duration = Duration::from_millis(50);
 
@@ -55,6 +56,7 @@ struct DiscordPresencePayload {
     ended_at_millis: Option<i64>,
     media_duration_ms: Option<u64>,
     media_position_ms: Option<u64>,
+    media_is_playing: bool,
     summary: String,
     signature: String,
     artwork: Option<DiscordPresenceArtwork>,
@@ -75,6 +77,37 @@ struct DiscordPresenceIcon {
     content_type: String,
     hover_text: String,
     cache_key: String,
+}
+
+impl DiscordPresencePayload {
+    fn publish_signature(&self) -> String {
+        let artwork_key = self
+            .artwork
+            .as_ref()
+            .map(|artwork| artwork.cache_key.as_str())
+            .unwrap_or("");
+        let icon_key = self
+            .icon
+            .as_ref()
+            .map(|icon| icon.cache_key.as_str())
+            .unwrap_or("");
+        let stable_position_ms = if self.media_is_playing {
+            None
+        } else {
+            self.media_position_ms
+        };
+        format!(
+            "{}\n{}\n{}\n{}\n{}\n{:?}\n{:?}\n{}",
+            self.signature,
+            self.details,
+            self.state.as_deref().unwrap_or(""),
+            artwork_key,
+            icon_key,
+            self.media_duration_ms,
+            stable_position_ms,
+            self.media_is_playing
+        )
+    }
 }
 
 impl DiscordPresenceRuntime {
@@ -208,17 +241,33 @@ fn run_discord_presence_loop(
     );
     let mut consecutive_errors = 0u32;
     let mut last_signature = String::new();
+    let mut last_publish_signature = String::new();
+    let mut last_sent_end_timestamp: Option<i64> = None;
     let mut activity_started_at = Some(Utc::now().timestamp_millis());
 
     while !stop_flag.load(Ordering::SeqCst) {
         match capture_local_presence(&config) {
             Ok(Some(mut payload)) => {
-                if payload.signature != last_signature {
+                let signature_changed = payload.signature != last_signature;
+                if signature_changed {
                     last_signature = payload.signature.clone();
                     activity_started_at = Some(Utc::now().timestamp_millis());
                 }
                 if payload.started_at_millis.is_none() && payload.ended_at_millis.is_none() {
                     payload.started_at_millis = activity_started_at;
+                }
+
+                let publish_signature = payload.publish_signature();
+                if publish_signature != last_publish_signature {
+                    last_publish_signature = publish_signature;
+                    last_sent_end_timestamp = None;
+                }
+
+                if should_skip_timestamp_update(&payload, last_sent_end_timestamp) {
+                    update_presence_heartbeat(&state, true, None, run_id);
+                    consecutive_errors = 0;
+                    sleep_with_stop(sync_interval, &stop_flag);
+                    continue;
                 }
 
                 match apply_discord_presence(
@@ -238,11 +287,18 @@ fn run_discord_presence_loop(
                             Some(debug_payload),
                             run_id,
                         );
+                        last_sent_end_timestamp =
+                            if payload.media_is_playing && payload.ended_at_millis.is_some() {
+                                payload.ended_at_millis
+                            } else {
+                                None
+                            };
                         consecutive_errors = 0;
                         sleep_with_stop(sync_interval, &stop_flag);
                     }
                     Err(error) => {
                         discord_client = None;
+                        last_sent_end_timestamp = None;
                         consecutive_errors = consecutive_errors.saturating_add(1);
                         set_discord_error(&state, Some(error), false, run_id);
                         sleep_with_stop(error_backoff(consecutive_errors), &stop_flag);
@@ -257,11 +313,14 @@ fn run_discord_presence_loop(
                 );
                 update_presence_snapshot(&state, true, None, None, None, run_id);
                 last_signature.clear();
+                last_publish_signature.clear();
+                last_sent_end_timestamp = None;
                 consecutive_errors = 0;
                 sleep_with_stop(sync_interval, &stop_flag);
             }
             Err(error) => {
                 discord_client = None;
+                last_sent_end_timestamp = None;
                 consecutive_errors = consecutive_errors.saturating_add(1);
                 set_discord_error(&state, Some(error), false, run_id);
                 sleep_with_stop(error_backoff(consecutive_errors), &stop_flag);
@@ -294,26 +353,28 @@ fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresenc
         return Ok(None);
     };
     let (started_at_millis, ended_at_millis) = if should_use_media_timestamps(config, &resolved) {
-        build_media_timestamps(&media)
+        build_media_timestamps(config, &media)
     } else {
         (None, None)
     };
+    let media_reportable = media.is_reportable(config.report_stopped_media);
 
     Ok(Some(DiscordPresencePayload {
         details: resolved.discord_details,
         state: resolved.discord_state,
         started_at_millis,
         ended_at_millis,
-        media_duration_ms: if media.is_active() {
+        media_duration_ms: if media_reportable {
             media.duration_ms
         } else {
             None
         },
-        media_position_ms: if media.is_active() {
+        media_position_ms: if media_reportable {
             media.position_ms
         } else {
             None
         },
+        media_is_playing: media.is_playing,
         summary: resolved.summary,
         signature: resolved.signature,
         artwork: build_presence_artwork(config, &media),
@@ -517,8 +578,8 @@ fn should_use_media_timestamps(
     }
 }
 
-fn build_media_timestamps(media: &MediaInfo) -> (Option<i64>, Option<i64>) {
-    if !media.is_active() {
+fn build_media_timestamps(config: &ClientConfig, media: &MediaInfo) -> (Option<i64>, Option<i64>) {
+    if !media.is_reportable(config.report_stopped_media) {
         return (None, None);
     }
 
@@ -533,16 +594,69 @@ fn build_media_timestamps(media: &MediaInfo) -> (Option<i64>, Option<i64>) {
         return (None, None);
     };
 
-    let now = Utc::now().timestamp_millis();
-    let started_at = now.checked_sub(position_ms);
-    let ended_at = match (started_at, duration_ms) {
-        (Some(started_at), Some(duration_ms)) if duration_ms >= position_ms => {
-            started_at.checked_add(duration_ms)
-        }
-        _ => None,
+    if !media.is_playing {
+        let Some(duration_ms) = duration_ms else {
+            return (None, None);
+        };
+        return calc_paused_timestamps(position_ms, duration_ms)
+            .map(|(started_at, ended_at)| (Some(started_at), Some(ended_at)))
+            .unwrap_or((None, None));
+    }
+
+    let (started_at, ended_at) = match duration_ms {
+        Some(duration_ms) => calc_playing_timestamps(position_ms, duration_ms),
+        None => (Utc::now().timestamp_millis().checked_sub(position_ms), None),
     };
 
     (started_at, ended_at)
+}
+
+fn calc_playing_timestamps(position_ms: i64, duration_ms: i64) -> (Option<i64>, Option<i64>) {
+    let now_ms = Utc::now().timestamp_millis();
+    let remaining_ms = duration_ms.saturating_sub(position_ms).max(0);
+    let ended_at = now_ms.checked_add(remaining_ms);
+    let started_at = ended_at.and_then(|ended_at| ended_at.checked_sub(duration_ms));
+    (started_at, ended_at)
+}
+
+fn calc_paused_timestamps(position_ms: i64, duration_ms: i64) -> Option<(i64, i64)> {
+    // Based on apoint123/inflink-rs and the musicpresence.app future timestamp
+    // trick: https://github.com/apoint123/inflink-rs/blob/main/packages/backend/src/discord.rs
+    const ONE_YEAR_MS: i64 = 365 * 24 * 60 * 60 * 1000;
+
+    if duration_ms <= 0 {
+        return None;
+    }
+
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
+    let current_progress_ms = position_ms.clamp(0, duration_ms);
+    let future_start = now_ms
+        .checked_sub(current_progress_ms)?
+        .checked_add(ONE_YEAR_MS)?;
+    let future_end = future_start.checked_add(duration_ms)?;
+
+    Some((future_start, future_end))
+}
+
+fn should_skip_timestamp_update(
+    payload: &DiscordPresencePayload,
+    last_sent_end_timestamp: Option<i64>,
+) -> bool {
+    if !payload.media_is_playing {
+        return false;
+    }
+
+    let Some(last_end) = last_sent_end_timestamp else {
+        return false;
+    };
+    let Some(next_end) = payload.ended_at_millis else {
+        return false;
+    };
+
+    last_end.abs_diff(next_end) < TIMESTAMP_UPDATE_THRESHOLD_MS as u64
 }
 
 fn build_presence_artwork(
@@ -550,7 +664,7 @@ fn build_presence_artwork(
     media: &MediaInfo,
 ) -> Option<DiscordPresenceArtwork> {
     if !config.discord_use_music_artwork
-        || !media.is_active()
+        || !media.is_reportable(config.report_stopped_media)
         || config.discord_report_mode == DiscordReportMode::App
     {
         return None;
@@ -596,14 +710,14 @@ fn build_presence_icon(
         return None;
     }
 
-    if media.is_active()
+    if media.is_reportable(config.report_stopped_media)
         && matches!(
             config.discord_report_mode,
             DiscordReportMode::Music | DiscordReportMode::Mixed
         )
     {
         if config.discord_use_music_artwork {
-            return build_playback_source_icon(media).or_else(|| {
+            return build_playback_source_icon(media, config.report_stopped_media).or_else(|| {
                 if config.discord_use_app_artwork {
                     build_foreground_app_icon(process_name, foreground_app_icon)
                 } else {
@@ -616,7 +730,7 @@ fn build_presence_icon(
     if config.discord_use_app_artwork {
         return build_foreground_app_icon(process_name, foreground_app_icon).or_else(|| {
             if config.discord_use_music_artwork {
-                build_playback_source_icon(media)
+                build_playback_source_icon(media, config.report_stopped_media)
             } else {
                 None
             }
@@ -624,7 +738,7 @@ fn build_presence_icon(
     }
 
     if config.discord_use_music_artwork {
-        return build_playback_source_icon(media);
+        return build_playback_source_icon(media, config.report_stopped_media);
     }
 
     None
@@ -658,8 +772,11 @@ fn build_foreground_app_icon(
     })
 }
 
-fn build_playback_source_icon(media: &MediaInfo) -> Option<DiscordPresenceIcon> {
-    if !media.is_active() {
+fn build_playback_source_icon(
+    media: &MediaInfo,
+    include_stopped: bool,
+) -> Option<DiscordPresenceIcon> {
+    if !media.is_reportable(include_stopped) {
         return None;
     }
 
@@ -807,6 +924,46 @@ mod tests {
 
         assert!(icon.is_none());
     }
+
+    #[test]
+    fn paused_media_uses_future_timestamps_when_visible() {
+        let config = ClientConfig {
+            discord_report_mode: DiscordReportMode::Music,
+            report_stopped_media: true,
+            ..ClientConfig::default()
+        };
+        let mut media = sample_media();
+        media.is_playing = false;
+        media.position_ms = Some(30_000);
+        media.duration_ms = Some(180_000);
+
+        let (started_at, ended_at) = build_media_timestamps(&config, &media);
+        let started_at = started_at.expect("start timestamp");
+        let ended_at = ended_at.expect("end timestamp");
+
+        assert!(started_at > Utc::now().timestamp_millis());
+        assert_eq!(ended_at - started_at, 180_000);
+    }
+
+    #[test]
+    fn playing_timestamp_update_skips_small_end_drift() {
+        let payload = DiscordPresencePayload {
+            details: "Track Name".into(),
+            state: Some("Artist Name".into()),
+            started_at_millis: Some(900_000),
+            ended_at_millis: Some(1_000_050),
+            media_duration_ms: Some(180_000),
+            media_position_ms: Some(30_000),
+            media_is_playing: true,
+            summary: "Track Name".into(),
+            signature: "Track Name".into(),
+            artwork: None,
+            icon: None,
+        };
+
+        assert!(should_skip_timestamp_update(&payload, Some(1_000_000)));
+        assert!(!should_skip_timestamp_update(&payload, Some(999_800)));
+    }
 }
 
 fn fallback_app_name(source: &str) -> String {
@@ -932,6 +1089,22 @@ fn update_presence_snapshot(
     inner.last_sync_at = Some(Utc::now().to_rfc3339());
     inner.current_summary = current_summary;
     inner.debug_payload = debug_payload;
+}
+
+fn update_presence_heartbeat(
+    state: &Arc<Mutex<DiscordPresenceInner>>,
+    connected: bool,
+    last_error: Option<String>,
+    run_id: u64,
+) {
+    let mut inner = state.lock().unwrap_or_else(|e| e.into_inner());
+    if inner.active_run_id != Some(run_id) {
+        return;
+    }
+
+    inner.connected = connected;
+    inner.last_error = last_error;
+    inner.last_sync_at = Some(Utc::now().to_rfc3339());
 }
 
 fn set_discord_error(

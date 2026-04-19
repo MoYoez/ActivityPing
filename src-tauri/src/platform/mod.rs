@@ -47,6 +47,10 @@ impl MediaInfo {
         self.is_playing && !self.is_empty()
     }
 
+    pub fn is_reportable(&self, include_stopped: bool) -> bool {
+        !self.is_empty() && (self.is_playing || include_stopped)
+    }
+
     pub fn summary(&self) -> String {
         let mut parts = Vec::new();
         if !self.title.trim().is_empty() {
