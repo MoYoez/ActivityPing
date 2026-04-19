@@ -13,9 +13,16 @@ const ERROR_MESSAGES: Record<string, string> = {
   "backendErrors.reporterWorkerStopping": "The local monitor is still stopping. Try again in a moment.",
   "backendErrors.discordConfigAppIdMissing": "Discord application ID is required before Discord RPC can start.",
   "backendErrors.discordWorkerStopping": "Discord RPC is still stopping. Try again in a moment.",
+  "backendErrors.platformSelfTestTimedOut":
+    "Platform self-test timed out. Windows did not return media or window data in time.",
+  "backendErrors.platformSelfTestAlreadyRunning":
+    "A previous platform self-test is still waiting on Windows. Try again after it returns.",
+  "backendErrors.platformSelfTestFailed": "Platform self-test failed before it could return a result.",
   "backendErrors.accessibilityPermissionUnsupported":
     "Accessibility permission requests are not supported on this platform.",
 };
+
+const PLATFORM_SELF_TEST_TIMEOUT_MS = 5_000;
 
 function toInvokeError(message: string, details?: unknown): ApiResult<never> {
   return {
@@ -35,6 +42,38 @@ async function invokeApi<T>(command: string, args?: Record<string, unknown>): Pr
   } catch (error) {
     return toInvokeError(error instanceof Error ? error.message : "The Tauri command failed.", error);
   }
+}
+
+async function withApiTimeout<T>(
+  promise: Promise<ApiResult<T>>,
+  timeoutMs: number,
+  message: string,
+  code: string,
+): Promise<ApiResult<T>> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<ApiResult<T>>((resolve) => {
+    timeoutId = setTimeout(() => {
+      resolve({
+        success: false,
+        status: 408,
+        error: {
+          status: 408,
+          code,
+          message,
+          details: { timeoutMs },
+        },
+      });
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise.finally(() => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }),
+    timeout,
+  ]);
 }
 
 export function resolveApiError(result: ApiResult<unknown>, fallback: string): string {
@@ -128,7 +167,12 @@ export async function getDiscordPresenceSnapshot(): Promise<ApiResult<DiscordPre
 }
 
 export async function runPlatformSelfTest(): Promise<ApiResult<PlatformSelfTestResult>> {
-  return invokeApi("run_platform_self_test");
+  return withApiTimeout(
+    invokeApi("run_platform_self_test"),
+    PLATFORM_SELF_TEST_TIMEOUT_MS,
+    "Platform self-test timed out. Windows did not return media or window data in time.",
+    "backendErrors.platformSelfTestTimedOut",
+  );
 }
 
 export async function requestAccessibilityPermission(): Promise<ApiResult<boolean>> {

@@ -74,11 +74,10 @@ jobs:
       - name: Build desktop app
         run: pnpm tauri build
 
-      - name: Upload desktop artifacts
+      - name: Upload bundled installers
         uses: actions/upload-artifact@v4
         with:
           name: activityping-${{ matrix.platform.artifact }}
           path: |
             src-tauri/target/release/bundle/**/*
-            src-tauri/target/release/activityping*
           if-no-files-found: error

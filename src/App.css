@@ -53,8 +53,11 @@
 html,
 body,
 #root {
+  width: 100%;
+  max-width: 100%;
   min-height: 100%;
   margin: 0;
+  overflow-x: hidden;
 }
 
 body {
@@ -79,8 +82,34 @@ textarea {
   resize: vertical;
 }
 
+html,
+body,
+#root,
+.content-body,
+.runtime-log-feed,
+.debug-json,
+.suggestion-menu,
+.modal-box {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar,
+.content-body::-webkit-scrollbar,
+.runtime-log-feed::-webkit-scrollbar,
+.debug-json::-webkit-scrollbar,
+.suggestion-menu::-webkit-scrollbar,
+.modal-box::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .shell {
-  width: 100vw;
+  width: 100%;
+  max-width: 100vw;
   height: 100vh;
   min-height: 100vh;
   padding: 18px;
@@ -89,14 +118,17 @@ textarea {
 
 .app-frame {
   width: min(1320px, 100%);
+  max-width: 100%;
   height: 100%;
   margin: 0 auto;
+  min-width: 0;
   overflow: hidden;
 }
 
 .home-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  min-width: 0;
 }
 
 .sidebar {
@@ -234,13 +266,20 @@ textarea {
   flex: 1 1 auto;
   align-content: start;
   gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 18px 20px 22px;
 }
 
 .section-motion {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow-x: clip;
 }
 
 .settings-flow,
@@ -467,6 +506,10 @@ textarea {
   align-self: start;
 }
 
+.runtime-log-card {
+  max-height: min(620px, calc(100vh - 150px));
+}
+
 .runtime-debug-card {
   grid-column: 1 / -1;
 }
@@ -489,9 +532,14 @@ textarea {
 
 .runtime-log-feed {
   min-height: 0;
-  max-height: clamp(220px, calc(100vh - 290px), 520px);
+  max-height: clamp(220px, calc(100vh - 360px), 360px);
   overflow: auto;
   padding-right: 4px;
+  overscroll-behavior: contain;
+}
+
+.runtime-log-pagination {
+  padding-top: 0;
 }
 
 .history-record-grid {
@@ -579,6 +627,70 @@ textarea {
 .platform-probe-badge-row {
   margin-top: 10px;
   display: flex;
+}
+
+.about-page {
+  display: grid;
+  width: min(720px, 100%);
+  gap: 18px;
+  padding: 4px 2px;
+}
+
+.about-identity {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.about-icon {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--color-base-300);
+  border-radius: 8px;
+  background: var(--color-base-100);
+}
+
+.about-copy {
+  min-width: 0;
+}
+
+.about-copy h3 {
+  margin: 4px 0 0;
+  font-size: 1.45rem;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.about-copy p:last-child {
+  margin: 8px 0 0;
+  color: color-mix(in oklab, var(--color-base-content) 68%, transparent);
+  line-height: 1.55;
+}
+
+.about-repo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--color-base-300);
+  border-bottom: 1px solid var(--color-base-300);
+}
+
+.about-repo strong {
+  font-weight: 700;
+}
+
+.about-repo span:last-child {
+  min-width: 0;
+  color: color-mix(in oklab, var(--color-base-content) 62%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .log-entry {
@@ -777,7 +889,8 @@ textarea {
 
 @media (max-width: 920px) {
   body {
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .shell {
@@ -819,7 +932,8 @@ textarea {
 
 @media (max-height: 820px) {
   body {
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .shell {
@@ -838,10 +952,9 @@ textarea {
     overflow: visible;
   }
 
-  .runtime-log-feed,
-  .debug-json {
-    max-height: none;
-  }
+.debug-json {
+  max-height: none;
+}
 }
 
 @media (max-width: 720px) {

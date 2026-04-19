@@ -18,8 +18,8 @@ use crate::{
         DiscordReportMode,
     },
     platform::{
-        display_name_for_app_id, get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing,
-        MediaArtwork, MediaInfo,
+        display_name_for_app_id, get_foreground_app_icon, get_foreground_snapshot_for_reporting,
+        get_now_playing, MediaArtwork, MediaInfo,
     },
     rules::{normalize_client_config, resolve_activity},
 };
@@ -332,7 +332,10 @@ fn should_capture_process_name(config: &ClientConfig) -> bool {
         || config.app_message_rules_show_process_name
         || !config.app_message_rules.is_empty()
         || !config.app_name_only_list.is_empty()
-        || matches!(config.app_filter_mode, crate::models::AppFilterMode::Whitelist)
+        || matches!(
+            config.app_filter_mode,
+            crate::models::AppFilterMode::Whitelist
+        )
         || !config.app_blacklist.is_empty()
         || !config.app_whitelist.is_empty()
 }
@@ -377,7 +380,8 @@ fn apply_discord_presence(
                 }
             }
 
-            if let (Some(icon), Some(artwork_publisher)) = (payload.icon.as_ref(), artwork_publisher)
+            if let (Some(icon), Some(artwork_publisher)) =
+                (payload.icon.as_ref(), artwork_publisher)
             {
                 match artwork_publisher.publish(icon.bytes.clone(), icon.cache_key.clone()) {
                     Ok(image_url) => {
@@ -654,9 +658,7 @@ fn build_foreground_app_icon(
     })
 }
 
-fn build_playback_source_icon(
-    media: &MediaInfo,
-) -> Option<DiscordPresenceIcon> {
+fn build_playback_source_icon(media: &MediaInfo) -> Option<DiscordPresenceIcon> {
     if !media.is_active() {
         return None;
     }
@@ -761,8 +763,8 @@ mod tests {
             content_type: "image/png".into(),
         });
 
-        let icon = build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media)
-            .expect("icon");
+        let icon =
+            build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media).expect("icon");
 
         assert_eq!(icon.hover_text, "Spotify");
     }
@@ -780,8 +782,8 @@ mod tests {
         };
         let media = MediaInfo::default();
 
-        let icon = build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media)
-            .expect("icon");
+        let icon =
+            build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media).expect("icon");
 
         assert_eq!(icon.hover_text, "Code");
     }

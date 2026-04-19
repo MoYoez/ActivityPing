@@ -63,7 +63,10 @@ fn foreground_app_icon_cache() -> &'static Mutex<HashMap<String, Option<super::M
 pub fn get_foreground_snapshot() -> Result<ForegroundSnapshot, String> {
     let hwnd = unsafe { GetForegroundWindow() };
     if hwnd.0.is_null() {
-        return Err("Failed to read the foreground window: GetForegroundWindow returned a null handle.".into());
+        return Err(
+            "Failed to read the foreground window: GetForegroundWindow returned a null handle."
+                .into(),
+        );
     }
 
     let title_len = unsafe { GetWindowTextLengthW(hwnd) };
@@ -80,7 +83,10 @@ pub fn get_foreground_snapshot() -> Result<ForegroundSnapshot, String> {
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
     }
     if pid == 0 {
-        return Err("Failed to read the foreground window: could not resolve the foreground process ID.".into());
+        return Err(
+            "Failed to read the foreground window: could not resolve the foreground process ID."
+                .into(),
+        );
     }
 
     let process_name = exe_base_name_from_pid(pid).unwrap_or_else(|_| "unknown".to_string());
@@ -101,7 +107,10 @@ pub fn get_foreground_snapshot_for_reporting(
 
     let hwnd = unsafe { GetForegroundWindow() };
     if hwnd.0.is_null() {
-        return Err("Failed to read the foreground window: GetForegroundWindow returned a null handle.".into());
+        return Err(
+            "Failed to read the foreground window: GetForegroundWindow returned a null handle."
+                .into(),
+        );
     }
 
     let process_title = if include_process_title {
@@ -205,7 +214,7 @@ fn init_com_for_media() -> Result<ComInitGuard, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn get_now_playing_native() -> Result<MediaInfo, String> {
+fn get_now_playing_native(include_assets: bool) -> Result<MediaInfo, String> {
     let _com_guard = init_com_for_media()?;
 
     let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
@@ -246,8 +255,16 @@ fn get_now_playing_native() -> Result<MediaInfo, String> {
         .map(|value| value.to_string())
         .unwrap_or_default();
     let (duration_ms, position_ms) = read_media_timeline(&session);
-    let artwork = read_media_artwork(&properties).unwrap_or_default();
-    let source_icon = read_source_app_icon(&source_app_id);
+    let artwork = if include_assets {
+        read_media_artwork(&properties).unwrap_or_default()
+    } else {
+        None
+    };
+    let source_icon = if include_assets {
+        read_source_app_icon(&source_app_id)
+    } else {
+        None
+    };
 
     let media = MediaInfo {
         title,
@@ -269,13 +286,20 @@ fn get_now_playing_native() -> Result<MediaInfo, String> {
 }
 
 pub fn get_now_playing() -> Result<MediaInfo, String> {
-    get_now_playing_native()
+    get_now_playing_native(true)
+}
+
+fn get_now_playing_for_self_test() -> Result<MediaInfo, String> {
+    get_now_playing_native(false)
 }
 
 pub fn get_foreground_app_icon() -> Result<Option<super::MediaArtwork>, String> {
     let hwnd = unsafe { GetForegroundWindow() };
     if hwnd.0.is_null() {
-        return Err("Failed to read the foreground window: GetForegroundWindow returned a null handle.".into());
+        return Err(
+            "Failed to read the foreground window: GetForegroundWindow returned a null handle."
+                .into(),
+        );
     }
 
     let mut pid = 0u32;
@@ -283,7 +307,10 @@ pub fn get_foreground_app_icon() -> Result<Option<super::MediaArtwork>, String> 
         GetWindowThreadProcessId(hwnd, Some(&mut pid));
     }
     if pid == 0 {
-        return Err("Failed to read the foreground window: could not resolve the foreground process ID.".into());
+        return Err(
+            "Failed to read the foreground window: could not resolve the foreground process ID."
+                .into(),
+        );
     }
 
     let executable_path = process_image_path_from_pid(pid)?;
@@ -301,16 +328,18 @@ pub fn get_foreground_app_icon() -> Result<Option<super::MediaArtwork>, String> 
         return Ok(cached);
     }
 
-    let icon = render_executable_icon_png(cache_key).ok().and_then(|bytes| {
-        if bytes.is_empty() {
-            None
-        } else {
-            Some(super::MediaArtwork {
-                bytes,
-                content_type: "image/png".to_string(),
-            })
-        }
-    });
+    let icon = render_executable_icon_png(cache_key)
+        .ok()
+        .and_then(|bytes| {
+            if bytes.is_empty() {
+                None
+            } else {
+                Some(super::MediaArtwork {
+                    bytes,
+                    content_type: "image/png".to_string(),
+                })
+            }
+        });
 
     foreground_app_icon_cache()
         .lock()
@@ -400,7 +429,8 @@ fn read_stream_reference_artwork(
 
     let size = stream
         .Size()
-        .map_err(|error| format!("Failed to read the app icon size: {error}"))? as u32;
+        .map_err(|error| format!("Failed to read the app icon size: {error}"))?
+        as u32;
     if size == 0 {
         return Ok(None);
     }
@@ -713,7 +743,8 @@ fn read_media_artwork(
 
     let size = stream
         .Size()
-        .map_err(|error| format!("Failed to read the media thumbnail size: {error}"))? as u32;
+        .map_err(|error| format!("Failed to read the media thumbnail size: {error}"))?
+        as u32;
     if size == 0 {
         return Ok(None);
     }
@@ -822,7 +853,7 @@ pub fn run_self_test() -> PlatformSelfTestResult {
         ),
     };
 
-    let media = match get_now_playing() {
+    let media = match get_now_playing_for_self_test() {
         Ok(info) if info.is_active() => make_probe(
             true,
             localized_text("platformSelfTest.summary.mediaOk", None, "Media capture OK"),
@@ -849,7 +880,11 @@ pub fn run_self_test() -> PlatformSelfTestResult {
         ),
         Err(error) => make_probe(
             false,
-            localized_text("platformSelfTest.summary.mediaFailed", None, "Media capture failed"),
+            localized_text(
+                "platformSelfTest.summary.mediaFailed",
+                None,
+                "Media capture failed",
+            ),
             localized_text("platformSelfTest.detail.mediaReadFailed", None, error),
             Vec::new(),
         ),

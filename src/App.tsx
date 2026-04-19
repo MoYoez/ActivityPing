@@ -1,4 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AnimatePresence, motion } from "motion/react";
 
 import "./App.css";
@@ -42,7 +43,7 @@ import type {
 } from "./types";
 
 type NoticeTone = "info" | "success" | "warn" | "error";
-type ViewSection = "settings" | "runtime";
+type ViewSection = "runtime" | "settings" | "about";
 
 const CARD_CLASS = "card border border-base-300 bg-base-100 shadow-sm";
 const PANEL_CLASS = `${CARD_CLASS} space-y-4 p-4`;
@@ -62,7 +63,9 @@ const TOGGLE_TILE_CLASS = "flex min-h-[88px] items-center justify-between gap-3 
 const RADIO_CARD_CLASS = "flex items-start gap-3 rounded-box border border-base-300 bg-base-100 p-4 text-left";
 const ACTIVE_RADIO_CARD_CLASS = "flex items-start gap-3 rounded-box border border-primary bg-primary/10 p-4 text-left";
 const SUBRULE_CARD_CLASS = "card border border-base-300 bg-base-100 shadow-sm";
+const GITHUB_URL = "https://github.com/MoYoez/ActivityPing";
 const MAX_RUNTIME_LOGS = 20;
+const RUNTIME_LOG_PAGE_SIZE = 6;
 const MAX_HISTORY_RECORDS = 3;
 const RULE_GROUP_PAGE_SIZE = 6;
 const TITLE_RULE_PAGE_SIZE = 3;
@@ -229,19 +232,24 @@ function probeBadgeClass(probe: PlatformProbeResult) {
 }
 
 const SECTION_COPY: Record<ViewSection, { kicker: string; title: string; description: string }> = {
-  settings: {
-    kicker: "Settings",
-    title: "RPC and local rules",
-    description: "Configure Discord RPC first, then tune monitor behavior and local rule clauses in one place.",
-  },
   runtime: {
     kicker: "Runtime",
     title: "Live monitor",
     description: "Watch captured activity, current RPC output and the recent runtime log. Requires a saved RPC profile first.",
   },
+  settings: {
+    kicker: "Settings",
+    title: "RPC and local rules",
+    description: "Configure Discord RPC first, then tune monitor behavior and local rule clauses in one place.",
+  },
+  about: {
+    kicker: "About",
+    title: "ActivityPing",
+    description: "Project links and build information.",
+  },
 };
 
-const SECTION_ORDER: ViewSection[] = ["runtime", "settings"];
+const SECTION_ORDER: ViewSection[] = ["runtime", "settings", "about"];
 
 function clampRuleIndex(index: number, total: number) {
   if (total <= 0) {
@@ -584,7 +592,7 @@ function App() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [activeSection, setActiveSection] = useState<ViewSection>("settings");
+  const [activeSection, setActiveSection] = useState<ViewSection>("runtime");
   const [activeRuleIndex, setActiveRuleIndex] = useState(0);
   const [rulesImportOpen, setRulesImportOpen] = useState(false);
   const [rulesImportValue, setRulesImportValue] = useState("");
@@ -598,6 +606,7 @@ function App() {
   const [appliedRuntimeConfigSignature, setAppliedRuntimeConfigSignature] = useState<string | null>(null);
   const [ruleGroupPage, setRuleGroupPage] = useState(0);
   const [titleRulePage, setTitleRulePage] = useState(0);
+  const [runtimeLogPage, setRuntimeLogPage] = useState(0);
   const [jsonViewer, setJsonViewer] = useState<JsonViewerState | null>(null);
   const runtimeAutostartAttemptedRef = useRef(false);
   const discordDetailsInputRef = useRef<HTMLInputElement | null>(null);
@@ -1010,6 +1019,17 @@ function App() {
     [baseState.playSourceHistory],
   );
   const runtimeLogs = useMemo(() => reporterSnapshot.logs.slice(0, MAX_RUNTIME_LOGS), [reporterSnapshot.logs]);
+  const runtimeLogPageCount = pageCount(runtimeLogs.length, RUNTIME_LOG_PAGE_SIZE);
+  const safeRuntimeLogPage = clampPage(runtimeLogPage, runtimeLogs.length, RUNTIME_LOG_PAGE_SIZE);
+  const visibleRuntimeLogs = useMemo(
+    () => runtimeLogs.slice(safeRuntimeLogPage * RUNTIME_LOG_PAGE_SIZE, (safeRuntimeLogPage + 1) * RUNTIME_LOG_PAGE_SIZE),
+    [safeRuntimeLogPage, runtimeLogs],
+  );
+  const runtimeLogPageStart = runtimeLogs.length === 0 ? 0 : safeRuntimeLogPage * RUNTIME_LOG_PAGE_SIZE + 1;
+  const runtimeLogPageEnd = Math.min(runtimeLogs.length, (safeRuntimeLogPage + 1) * RUNTIME_LOG_PAGE_SIZE);
+  useEffect(() => {
+    setRuntimeLogPage((current) => clampPage(current, runtimeLogs.length, RUNTIME_LOG_PAGE_SIZE));
+  }, [runtimeLogs.length]);
   const discordDebugPayload = useMemo<DiscordDebugPayload | null>(
     () => discordSnapshot.debugPayload ?? null,
     [discordSnapshot.debugPayload],
@@ -2174,7 +2194,7 @@ function App() {
           {runtimeLogs.length === 0 ? (
             <div className="empty-state">No runtime entries yet.</div>
           ) : (
-            runtimeLogs.map((entry) => (
+            visibleRuntimeLogs.map((entry) => (
               <motion.article
                 key={entry.id}
                 layout
@@ -2209,6 +2229,34 @@ function App() {
             ))
           )}
         </div>
+        {runtimeLogs.length > 0 ? (
+          <div className="pagination-row runtime-log-pagination">
+            <span className="pagination-copy">
+              {runtimeLogPageStart}-{runtimeLogPageEnd} of {runtimeLogs.length}
+            </span>
+            <div className="join">
+              <button
+                className="btn btn-outline btn-xs join-item"
+                type="button"
+                disabled={safeRuntimeLogPage <= 0}
+                onClick={() => setRuntimeLogPage((current) => clampPage(current - 1, runtimeLogs.length, RUNTIME_LOG_PAGE_SIZE))}
+              >
+                Prev
+              </button>
+              <span className="btn btn-ghost btn-xs join-item no-animation">
+                Page {safeRuntimeLogPage + 1} / {runtimeLogPageCount}
+              </span>
+              <button
+                className="btn btn-outline btn-xs join-item"
+                type="button"
+                disabled={safeRuntimeLogPage >= runtimeLogPageCount - 1}
+                onClick={() => setRuntimeLogPage((current) => clampPage(current + 1, runtimeLogs.length, RUNTIME_LOG_PAGE_SIZE))}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
       </motion.section>
 
       <motion.section className={`${PANEL_CLASS} runtime-card runtime-debug-card`} {...CARD_MOTION} transition={{ ...MOTION_TRANSITION, delay: 0.06 }}>
@@ -2234,14 +2282,50 @@ function App() {
     </div>
   );
 
+  const aboutView = (
+    <motion.section className="about-page" {...CARD_MOTION} transition={MOTION_TRANSITION}>
+      <div className="about-identity">
+        <img className="about-icon" src={appIcon} alt="ActivityPing icon" />
+        <div className="about-copy">
+          <p className="eyebrow">About</p>
+          <h3>ActivityPing</h3>
+          <p>Desktop activity monitor for Discord Rich Presence and webhook reporting.</p>
+        </div>
+      </div>
+
+      <div className="about-repo">
+        <span className="eyebrow">Repository</span>
+        <strong>MoYoez/ActivityPing</strong>
+        <span>{GITHUB_URL}</span>
+      </div>
+
+      <div className="about-actions">
+        <button
+          className={PRIMARY_BUTTON_CLASS}
+          type="button"
+          disabled={busy.openGithub}
+          onClick={() =>
+            runAction("openGithub", async () => {
+              await openUrl(GITHUB_URL);
+            })
+          }
+        >
+          {busy.openGithub ? "Opening..." : "Open GitHub"}
+        </button>
+      </div>
+    </motion.section>
+  );
+
   function renderSection() {
     switch (activeSection) {
-      case "settings":
-        return settingsView;
       case "runtime":
         return runtimeView;
-      default:
+      case "settings":
         return settingsView;
+      case "about":
+        return aboutView;
+      default:
+        return runtimeView;
     }
   }
 

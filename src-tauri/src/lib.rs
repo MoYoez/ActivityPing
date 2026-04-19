@@ -57,12 +57,14 @@ pub fn run() {
             #[cfg(desktop)]
             {
                 app.handle()
-                    .plugin(init_autostart(MacosLauncher::LaunchAgent, None::<Vec<&str>>))
+                    .plugin(init_autostart(
+                        MacosLauncher::LaunchAgent,
+                        None::<Vec<&str>>,
+                    ))
                     .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
 
                 tray::setup_tray(&app.handle())
                     .map_err(|error| -> Box<dyn std::error::Error> { error.into() })?;
-
             }
 
             Ok(())

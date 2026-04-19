@@ -712,7 +712,10 @@ fn get_foreground_snapshot_wayland() -> Result<ForegroundSnapshot, String> {
         Err(error) => errors.push(format!("KDE kdotool: {error}")),
     }
 
-    Err(format!("Wayland foreground window capture failed. {}", errors.join("; ")))
+    Err(format!(
+        "Wayland foreground window capture failed. {}",
+        errors.join("; ")
+    ))
 }
 
 fn get_foreground_snapshot_wayland_for_reporting(
@@ -734,7 +737,10 @@ fn get_foreground_snapshot_wayland_for_reporting(
         Err(error) => errors.push(format!("KDE kdotool: {error}")),
     }
 
-    Err(format!("Wayland foreground window capture failed. {}", errors.join("; ")))
+    Err(format!(
+        "Wayland foreground window capture failed. {}",
+        errors.join("; ")
+    ))
 }
 
 fn get_foreground_snapshot_gnome_focused_window_dbus() -> Result<ForegroundSnapshot, String> {
@@ -1260,7 +1266,11 @@ pub fn run_self_test() -> PlatformSelfTestResult {
         ),
         Err(error) => make_probe(
             false,
-            localized_text("platformSelfTest.summary.mediaFailed", None, "Media capture failed"),
+            localized_text(
+                "platformSelfTest.summary.mediaFailed",
+                None,
+                "Media capture failed",
+            ),
             linux_detail(&error, "media"),
             linux_guidance(&error, "media"),
         ),

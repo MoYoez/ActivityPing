@@ -321,12 +321,8 @@ fn build_smart_discord_text(
         build_smart_primary_title_text(config, process_name, process_title, status_text)
     {
         let media_text = build_smart_media_text(config, media, media_hidden);
-        let app_text = build_smart_rule_hit_app_text(
-            config,
-            process_name,
-            status_text,
-            media_text.is_none(),
-        );
+        let app_text =
+            build_smart_rule_hit_app_text(config, process_name, status_text, media_text.is_none());
         return Some(build_smart_text_layout(title_text, media_text, app_text));
     }
 
@@ -739,7 +735,9 @@ fn build_smart_text_layout(
     app_text: Option<String>,
 ) -> (String, Option<String>) {
     match (media_text, app_text) {
-        (Some(media_text), Some(app_text)) => (format!("{title_text} | {app_text}"), Some(media_text)),
+        (Some(media_text), Some(app_text)) => {
+            (format!("{title_text} | {app_text}"), Some(media_text))
+        }
         (Some(media_text), None) => (title_text, Some(media_text)),
         (None, Some(app_text)) => (title_text, Some(app_text)),
         (None, None) => (title_text, None),
@@ -937,15 +935,8 @@ mod tests {
         };
         let media = sample_media();
 
-        let resolved = build_discord_text(
-            &config,
-            "Code.exe",
-            None,
-            &media,
-            false,
-            Some("Coding"),
-        )
-        .expect("activity");
+        let resolved = build_discord_text(&config, "Code.exe", None, &media, false, Some("Coding"))
+            .expect("activity");
 
         assert_eq!(resolved.0, "Coding | Code.exe".to_string());
         assert_eq!(

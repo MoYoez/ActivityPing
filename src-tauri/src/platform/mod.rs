@@ -69,7 +69,9 @@ pub use macos::{get_foreground_app_icon, get_foreground_snapshot_for_reporting, 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 pub use stub::{get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing};
 #[cfg(target_os = "windows")]
-pub use windows::{get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing};
+pub use windows::{
+    get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing,
+};
 
 #[cfg(target_os = "linux")]
 pub use linux::run_self_test;

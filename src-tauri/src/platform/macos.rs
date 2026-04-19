@@ -178,8 +178,9 @@ fn get_now_playing_via_nowplaying_cli() -> Result<MediaInfo, NowPlayingCliError>
         }
     };
 
-    let raw: RawNowPlayingInfo = serde_json::from_str(&stdout)
-        .map_err(|error| NowPlayingCliError::Failed(format!("Failed to parse get-raw output: {error}")))?;
+    let raw: RawNowPlayingInfo = serde_json::from_str(&stdout).map_err(|error| {
+        NowPlayingCliError::Failed(format!("Failed to parse get-raw output: {error}"))
+    })?;
 
     let title = raw.title.map(normalize).unwrap_or_default();
     let artist = raw.artist.map(normalize).unwrap_or_default();
@@ -207,7 +208,10 @@ fn get_now_playing_via_nowplaying_cli() -> Result<MediaInfo, NowPlayingCliError>
                 .filter(|value| value.starts_with("image/"))
                 .map(str::to_string)
                 .or_else(|| detect_image_content_type(&bytes).map(str::to_string))?;
-            Some(super::MediaArtwork { bytes, content_type })
+            Some(super::MediaArtwork {
+                bytes,
+                content_type,
+            })
         });
     let source_icon = read_source_app_icon(&source_app_id);
 
@@ -276,12 +280,13 @@ fn read_bundle_icon(bundle_identifier: &str) -> Option<super::MediaArtwork> {
     }
 
     let c_bundle_identifier = CString::new(cache_key).ok()?;
-    let icon = read_bridge_string_with_input(waken_bundle_icon_png_base64, c_bundle_identifier.as_c_str())
-        .and_then(|value| decode_base64_image_payload(&value))
-        .map(|bytes| super::MediaArtwork {
-            bytes,
-            content_type: "image/png".to_string(),
-        });
+    let icon =
+        read_bridge_string_with_input(waken_bundle_icon_png_base64, c_bundle_identifier.as_c_str())
+            .and_then(|value| decode_base64_image_payload(&value))
+            .map(|bytes| super::MediaArtwork {
+                bytes,
+                content_type: "image/png".to_string(),
+            });
 
     source_icon_cache()
         .lock()
@@ -409,8 +414,8 @@ pub fn get_now_playing() -> Result<MediaInfo, String> {
 }
 
 pub fn get_foreground_app_icon() -> Result<Option<super::MediaArtwork>, String> {
-    let bundle_identifier = read_bridge_string(waken_frontmost_app_bundle_identifier)
-        .unwrap_or_default();
+    let bundle_identifier =
+        read_bridge_string(waken_frontmost_app_bundle_identifier).unwrap_or_default();
     Ok(read_bundle_icon(&bundle_identifier))
 }
 

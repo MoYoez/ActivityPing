@@ -1,6 +1,6 @@
 [package]
 name = "activityping"
-version = "0.1.0"
+version = "0.2.0"
 description = "Desktop activity reporter for Waken-Wa and Discord presence sync"
 authors = ["you"]
 edition = "2021"
