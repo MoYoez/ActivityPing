@@ -1,0 +1,104 @@
+use super::{
+    super::*,
+    fixtures::{artwork_config, sample_media},
+};
+use crate::platform::{MediaArtwork, MediaInfo};
+
+#[test]
+fn presence_artwork_prefers_album_for_hover_text() {
+    let config = artwork_config();
+    let media = sample_media();
+
+    let artwork = build_presence_artwork(&config, &media).expect("artwork");
+
+    assert_eq!(artwork.hover_text, "Album Name");
+}
+
+#[test]
+fn presence_artwork_falls_back_when_album_missing() {
+    let config = artwork_config();
+    let mut media = sample_media();
+    media.album.clear();
+
+    let artwork = build_presence_artwork(&config, &media).expect("artwork");
+
+    assert_eq!(artwork.hover_text, "Track Name / Artist Name");
+}
+
+#[test]
+fn app_mode_skips_music_artwork_even_when_media_is_active() {
+    let config = ClientConfig {
+        discord_report_mode: DiscordReportMode::App,
+        discord_use_music_artwork: true,
+        ..artwork_config()
+    };
+    let media = sample_media();
+
+    let artwork = build_presence_artwork(&config, &media);
+
+    assert!(artwork.is_none());
+}
+
+#[test]
+fn mixed_mode_prefers_source_icon_when_music_artwork_is_enabled() {
+    let config = ClientConfig {
+        discord_report_mode: DiscordReportMode::Mixed,
+        discord_use_music_artwork: true,
+        discord_use_app_artwork: true,
+        ..ClientConfig::default()
+    };
+    let foreground_icon = MediaArtwork {
+        bytes: vec![9, 9, 9],
+        content_type: "image/png".into(),
+    };
+    let mut media = sample_media();
+    media.source_app_id = "spotify.exe".into();
+    media.source_icon = Some(MediaArtwork {
+        bytes: vec![7, 7, 7],
+        content_type: "image/png".into(),
+    });
+
+    let icon =
+        build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media).expect("icon");
+
+    assert_eq!(icon.hover_text, "Spotify");
+}
+
+#[test]
+fn app_artwork_becomes_main_icon_when_music_is_unavailable() {
+    let config = ClientConfig {
+        discord_report_mode: DiscordReportMode::Mixed,
+        discord_use_app_artwork: true,
+        ..ClientConfig::default()
+    };
+    let foreground_icon = MediaArtwork {
+        bytes: vec![9, 9, 9],
+        content_type: "image/png".into(),
+    };
+    let media = MediaInfo::default();
+
+    let icon =
+        build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media).expect("icon");
+
+    assert_eq!(icon.hover_text, "Code");
+}
+
+#[test]
+fn app_mode_does_not_fall_back_to_music_source_icon() {
+    let config = ClientConfig {
+        discord_report_mode: DiscordReportMode::App,
+        discord_use_app_artwork: false,
+        discord_use_music_artwork: true,
+        ..ClientConfig::default()
+    };
+    let mut media = sample_media();
+    media.source_app_id = "spotify.exe".into();
+    media.source_icon = Some(MediaArtwork {
+        bytes: vec![7, 7, 7],
+        content_type: "image/png".into(),
+    });
+
+    let icon = build_presence_icon(&config, "code.exe", None, &media);
+
+    assert!(icon.is_none());
+}

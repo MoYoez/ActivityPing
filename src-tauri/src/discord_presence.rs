@@ -20,11 +20,13 @@ use addons::{
     build_presence_buttons, build_presence_party, build_presence_secrets, select_presence_addons,
 };
 use assets::{build_presence_artwork, build_presence_icon};
-use text::{build_presence_text, build_status_display_type};
 #[cfg(test)]
 use text::{build_music_only_activity_name, build_smart_presence_text};
+use text::{build_presence_text, build_status_display_type};
 use timestamps::{build_media_timestamps, should_skip_timestamp_update};
 
+#[cfg(test)]
+use crate::rules::{ResolvedActivity, ResolvedDiscordAddons};
 use crate::{
     artwork_server::{prepare_artwork_publisher, ArtworkPublisher, PublishAssetKind},
     backend_locale::BackendLocale,
@@ -43,8 +45,6 @@ use crate::{
         should_capture_process_name_for_reporting, should_capture_window_title_for_reporting,
     },
 };
-#[cfg(test)]
-use crate::rules::{ResolvedActivity, ResolvedDiscordAddons};
 
 const DEFAULT_SYNC_INTERVAL: Duration = Duration::from_secs(5);
 const MAX_ERROR_BACKOFF_MS: u64 = 30_000;
@@ -69,9 +69,7 @@ pub struct DiscordPresenceRuntime {
     sequence: AtomicU64,
 }
 
-use payload::{
-    DiscordPresencePayload, DiscordPresenceStatusDisplayType,
-};
+use payload::{DiscordPresencePayload, DiscordPresenceStatusDisplayType};
 
 impl DiscordPresenceRuntime {
     pub fn new() -> Self {
@@ -608,7 +606,6 @@ fn should_use_media_timestamps(
         DiscordReportMode::App => false,
     }
 }
-
 
 #[cfg(test)]
 mod tests;

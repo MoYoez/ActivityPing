@@ -71,7 +71,10 @@ impl<'a> DiscordTemplateValues<'a> {
     }
 }
 
-pub(super) fn render_discord_template(template: &str, values: &DiscordTemplateValues<'_>) -> Option<String> {
+pub(super) fn render_discord_template(
+    template: &str,
+    values: &DiscordTemplateValues<'_>,
+) -> Option<String> {
     let template = template.trim();
     if template.is_empty() {
         return None;
@@ -121,4 +124,3 @@ fn clean_rendered_text(value: &str) -> String {
         .trim()
         .to_string()
 }
-

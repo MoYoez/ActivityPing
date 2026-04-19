@@ -1,6 +1,8 @@
 use crate::{
     models::{ClientConfig, DiscordReportMode},
-    rules::{ResolvedActivity, ResolvedDiscordAddons, ResolvedDiscordParty, ResolvedDiscordSecrets},
+    rules::{
+        ResolvedActivity, ResolvedDiscordAddons, ResolvedDiscordParty, ResolvedDiscordSecrets,
+    },
 };
 
 use super::{
@@ -120,7 +122,9 @@ pub(super) fn build_presence_party(addons: &ResolvedDiscordAddons) -> Option<Dis
     })
 }
 
-pub(super) fn build_presence_secrets(addons: &ResolvedDiscordAddons) -> Option<DiscordPresenceSecrets> {
+pub(super) fn build_presence_secrets(
+    addons: &ResolvedDiscordAddons,
+) -> Option<DiscordPresenceSecrets> {
     let secrets = addons.secrets.as_ref()?;
     if secrets.join.is_none() && secrets.spectate.is_none() && secrets.match_secret.is_none() {
         return None;
@@ -132,4 +136,3 @@ pub(super) fn build_presence_secrets(addons: &ResolvedDiscordAddons) -> Option<D
         match_secret: secrets.match_secret.clone(),
     })
 }
-

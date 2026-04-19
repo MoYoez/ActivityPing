@@ -4,7 +4,10 @@ use crate::{
     rules::ResolvedActivity,
 };
 
-use super::{assets::fallback_app_name, payload::{DiscordPresenceStatusDisplayType, DiscordPresenceText}};
+use super::{
+    assets::fallback_app_name,
+    payload::{DiscordPresenceStatusDisplayType, DiscordPresenceText},
+};
 pub(super) fn build_presence_text(
     config: &ClientConfig,
     resolved: &ResolvedActivity,
@@ -80,7 +83,10 @@ fn build_custom_presence_text(
     ))
 }
 
-pub(super) fn build_music_only_activity_name(config: &ClientConfig, media: &MediaInfo) -> Option<String> {
+pub(super) fn build_music_only_activity_name(
+    config: &ClientConfig,
+    media: &MediaInfo,
+) -> Option<String> {
     if !is_music_visible(config, media) {
         return None;
     }
@@ -196,7 +202,9 @@ fn build_presence_text_from_parts(
     }
 }
 
-pub(super) fn build_status_display_type(config: &ClientConfig) -> Option<DiscordPresenceStatusDisplayType> {
+pub(super) fn build_status_display_type(
+    config: &ClientConfig,
+) -> Option<DiscordPresenceStatusDisplayType> {
     Some(match current_status_display(config) {
         DiscordStatusDisplay::Name => DiscordPresenceStatusDisplayType::Name,
         DiscordStatusDisplay::State => DiscordPresenceStatusDisplayType::State,
@@ -266,4 +274,3 @@ fn join_non_empty_presence(values: &[Option<&str>]) -> String {
 fn is_music_visible(config: &ClientConfig, media: &MediaInfo) -> bool {
     config.report_media && media.is_reportable(config.report_stopped_media)
 }
-

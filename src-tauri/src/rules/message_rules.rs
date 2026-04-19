@@ -1,7 +1,7 @@
 use crate::models::{AppMessageRuleGroup, AppMessageTitleRule, AppTitleRuleMode};
 
 use super::{
-    normalize_discord_buttons, normalize_party_size, non_empty, ResolvedDiscordAddons,
+    non_empty, normalize_discord_buttons, normalize_party_size, ResolvedDiscordAddons,
     ResolvedDiscordParty, ResolvedDiscordSecrets,
 };
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -137,4 +137,3 @@ fn render_rule_text(template: &str, process_name: &str, process_title: Option<&s
         .trim()
         .to_string()
 }
-
