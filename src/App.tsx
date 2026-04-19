@@ -1,6 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useShallow } from "zustand/react/shallow";
 
 import "./App.css";
 import {
@@ -39,6 +38,7 @@ import {
   validateArtworkPublishing,
   validateRuleRegex,
 } from "./app/appConfig";
+import { createConfigEditorActions } from "./app/createConfigEditorActions";
 import { createOverlayProps } from "./app/createOverlayProps";
 import {
   appHistoryRawTitles,
@@ -82,7 +82,6 @@ import {
   discordModeCustomAppName,
   discordModeStatusDisplay,
   normalizeDiscordLineTemplate,
-  patchDiscordModeSettings,
 } from "./components/discord/discordOptions";
 import { AppShellLayout } from "./components/layout/AppShellLayout";
 import { RulesDialogContent } from "./components/rules/RulesDialogContent";
@@ -103,17 +102,13 @@ import {
   stopRealtimeReporter,
 } from "./lib/api";
 import { normalizeClientConfig } from "./lib/rules";
-import { useAppUiStore, type NoticeTone } from "./store/appUiStore";
+import { type NoticeTone } from "./store/appUiStore";
+import { useAppUiState } from "./store/useAppUiState";
 import type {
-  AppMessageRuleGroup,
-  AppMessageTitleRule,
   AppStatePayload,
   ClientConfig,
-  DiscordAppNameMode,
   DiscordCustomPreset,
   DiscordDebugPayload,
-  DiscordRichPresenceButtonConfig,
-  DiscordStatusDisplay,
   ReporterLogEntry,
 } from "./types";
 
@@ -182,74 +177,18 @@ function App() {
     setJsonViewer,
     addNotice,
     removeNotice,
-  } = useAppUiStore(
-    useShallow((state) => ({
-      capabilities: state.capabilities,
-      baseState: state.baseState,
-      config: state.config,
-      reporterSnapshot: state.reporterSnapshot,
-      discordSnapshot: state.discordSnapshot,
-      platformSelfTest: state.platformSelfTest,
-      notices: state.notices,
-      hydrated: state.hydrated,
-      busy: state.busy,
-      activeSection: state.activeSection,
-      activeRuleIndex: state.activeRuleIndex,
-      rulesImportOpen: state.rulesImportOpen,
-      rulesImportValue: state.rulesImportValue,
-      blacklistInput: state.blacklistInput,
-      whitelistInput: state.whitelistInput,
-      nameOnlyInput: state.nameOnlyInput,
-      mediaSourceInput: state.mediaSourceInput,
-      rulesDialogOpen: state.rulesDialogOpen,
-      customRulesDialogOpen: state.customRulesDialogOpen,
-      customPresetPage: state.customPresetPage,
-      activeCustomPresetIndex: state.activeCustomPresetIndex,
-      discordDetailsForceCustomChoice: state.discordDetailsForceCustomChoice,
-      discordStateForceCustomChoice: state.discordStateForceCustomChoice,
-      presetDetailsForceCustomChoice: state.presetDetailsForceCustomChoice,
-      presetStateForceCustomChoice: state.presetStateForceCustomChoice,
-      discardDialogOpen: state.discardDialogOpen,
-      appliedRuntimeConfigSignature: state.appliedRuntimeConfigSignature,
-      ruleGroupPage: state.ruleGroupPage,
-      titleRulePage: state.titleRulePage,
-      runtimeLogPage: state.runtimeLogPage,
-      jsonViewer: state.jsonViewer,
-      setCapabilities: state.setCapabilities,
-      setBaseState: state.setBaseState,
-      setConfig: state.setConfig,
-      setReporterSnapshot: state.setReporterSnapshot,
-      setDiscordSnapshot: state.setDiscordSnapshot,
-      setPlatformSelfTest: state.setPlatformSelfTest,
-      setHydrated: state.setHydrated,
-      setBusy: state.setBusy,
-      setActiveSection: state.setActiveSection,
-      setActiveRuleIndex: state.setActiveRuleIndex,
-      setRulesImportOpen: state.setRulesImportOpen,
-      setRulesImportValue: state.setRulesImportValue,
-      setBlacklistInput: state.setBlacklistInput,
-      setWhitelistInput: state.setWhitelistInput,
-      setNameOnlyInput: state.setNameOnlyInput,
-      setMediaSourceInput: state.setMediaSourceInput,
-      setRulesDialogOpen: state.setRulesDialogOpen,
-      setCustomRulesDialogOpen: state.setCustomRulesDialogOpen,
-      setCustomPresetPage: state.setCustomPresetPage,
-      setActiveCustomPresetIndex: state.setActiveCustomPresetIndex,
-      setDiscordDetailsForceCustomChoice: state.setDiscordDetailsForceCustomChoice,
-      setDiscordStateForceCustomChoice: state.setDiscordStateForceCustomChoice,
-      setPresetDetailsForceCustomChoice: state.setPresetDetailsForceCustomChoice,
-      setPresetStateForceCustomChoice: state.setPresetStateForceCustomChoice,
-      setDiscardDialogOpen: state.setDiscardDialogOpen,
-      setAppliedRuntimeConfigSignature: state.setAppliedRuntimeConfigSignature,
-      setRuleGroupPage: state.setRuleGroupPage,
-      setTitleRulePage: state.setTitleRulePage,
-      setRuntimeLogPage: state.setRuntimeLogPage,
-      setJsonViewer: state.setJsonViewer,
-      addNotice: state.addNotice,
-      removeNotice: state.removeNotice,
-    })),
-  );
+  } = useAppUiState();
   const runtimeAutostartAttemptedRef = useRef(false);
+  const {
+    update,
+    updateDiscordModeSettings,
+    updateRuntimeAutostart,
+    patchRuleAt,
+    patchTitleRuleAt,
+    patchDiscordCustomPresetAt,
+    patchDiscordButtonAt,
+    patchRuleDiscordButtonAt,
+  } = createConfigEditorActions(setConfig);
 
   function notify(tone: NoticeTone, title: string, detail: string) {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -805,84 +744,6 @@ function App() {
       activeCustomPreset?.spectateSecret.trim() ||
       activeCustomPreset?.matchSecret.trim(),
   );
-
-  function update<K extends keyof ClientConfig>(key: K, value: ClientConfig[K]) {
-    setConfig((current) => ({ ...current, [key]: value }));
-  }
-
-  function updateDiscordModeSettings(patch: {
-    statusDisplay?: DiscordStatusDisplay;
-    appNameMode?: DiscordAppNameMode;
-    customAppName?: string;
-  }) {
-    setConfig((current) => patchDiscordModeSettings(current, current.discordReportMode, patch));
-  }
-
-  function updateRuntimeAutostart(enabled: boolean) {
-    setConfig((current) => ({
-      ...current,
-      runtimeAutostartEnabled: enabled,
-    }));
-  }
-
-  function patchRuleAt(index: number, updater: (rule: AppMessageRuleGroup) => AppMessageRuleGroup) {
-    setConfig((current) => {
-      const next = [...current.appMessageRules];
-      if (!next[index]) {
-        return current;
-      }
-      next[index] = updater(next[index]);
-      return { ...current, appMessageRules: next };
-    });
-  }
-
-  function patchTitleRuleAt(ruleIndex: number, titleRuleIndex: number, updater: (rule: AppMessageTitleRule) => AppMessageTitleRule) {
-    patchRuleAt(ruleIndex, (rule) => {
-      const next = [...rule.titleRules];
-      if (!next[titleRuleIndex]) {
-        return rule;
-      }
-      next[titleRuleIndex] = updater(next[titleRuleIndex]);
-      return { ...rule, titleRules: next };
-    });
-  }
-
-  function patchDiscordCustomPresetAt(index: number, updater: (preset: DiscordCustomPreset) => DiscordCustomPreset) {
-    setConfig((current) => {
-      const next = [...current.discordCustomPresets];
-      if (!next[index]) {
-        return current;
-      }
-      next[index] = updater(next[index]);
-      return { ...current, discordCustomPresets: next };
-    });
-  }
-
-  function patchDiscordButtonAt(index: number, updater: (button: DiscordRichPresenceButtonConfig) => DiscordRichPresenceButtonConfig) {
-    setConfig((current) => {
-      const next = [...current.discordCustomButtons];
-      if (!next[index]) {
-        return current;
-      }
-      next[index] = updater(next[index]);
-      return { ...current, discordCustomButtons: next };
-    });
-  }
-
-  function patchRuleDiscordButtonAt(
-    ruleIndex: number,
-    buttonIndex: number,
-    updater: (button: DiscordRichPresenceButtonConfig) => DiscordRichPresenceButtonConfig,
-  ) {
-    patchRuleAt(ruleIndex, (rule) => {
-      const next = [...rule.buttons];
-      if (!next[buttonIndex]) {
-        return rule;
-      }
-      next[buttonIndex] = updater(next[buttonIndex]);
-      return { ...rule, buttons: next };
-    });
-  }
 
   function saveCurrentCustomSettingsAsPreset() {
     const nextPreset = createDiscordCustomPresetFromConfig(config);
