@@ -124,6 +124,7 @@ function App() {
     customRulesDialogOpen,
     customPresetPage,
     activeCustomPresetIndex,
+    appliedCustomPresetIndex,
     discordDetailsForceCustomChoice,
     discordStateForceCustomChoice,
     presetDetailsForceCustomChoice,
@@ -152,6 +153,7 @@ function App() {
     setCustomRulesDialogOpen,
     setCustomPresetPage,
     setActiveCustomPresetIndex,
+    setAppliedCustomPresetIndex,
     setDiscordDetailsForceCustomChoice,
     setDiscordStateForceCustomChoice,
     setPresetDetailsForceCustomChoice,
@@ -247,12 +249,14 @@ function App() {
     capabilities,
     baseState,
     config,
+    appliedCustomPresetIndex,
     notify,
     setActiveSection,
     setBaseState,
     setConfig,
     setCustomPresetPage,
     setActiveCustomPresetIndex,
+    setAppliedCustomPresetIndex,
     setCustomRulesDialogOpen,
   });
   const appSuggestions = useMemo(
@@ -263,6 +267,16 @@ function App() {
     () => uniqueHistoryValues(baseState.playSourceHistory.map((entry) => entry.source)),
     [baseState.playSourceHistory],
   );
+  const appliedCustomPreset = useMemo(
+    () => (appliedCustomPresetIndex === null ? null : config.discordCustomPresets[appliedCustomPresetIndex] ?? null),
+    [appliedCustomPresetIndex, config.discordCustomPresets],
+  );
+  const appliedCustomPresetName = useMemo(() => {
+    if (appliedCustomPresetIndex === null || !appliedCustomPreset) {
+      return null;
+    }
+    return appliedCustomPreset.name.trim() || `Custom preset ${appliedCustomPresetIndex + 1}`;
+  }, [appliedCustomPreset, appliedCustomPresetIndex]);
   const {
     runtimeLogs,
     runtimeLogPageCount,
@@ -297,6 +311,7 @@ function App() {
   });
   useAppLifecycle({
     activeCustomPresetIndex,
+    appliedCustomPresetIndex,
     activeRuleIndex,
     appliedRuntimeConfigSignature,
     baseState,
@@ -314,6 +329,7 @@ function App() {
     runAction,
     startRuntimeSession,
     setActiveCustomPresetIndex,
+    setAppliedCustomPresetIndex,
     setActiveRuleIndex,
     setAppliedRuntimeConfigSignature,
     setBaseState,
@@ -503,6 +519,7 @@ function App() {
     discordDetailsForceCustomChoice,
     discordStateForceCustomChoice,
     artworkPublishingMissing,
+    appliedCustomPresetName,
     discordConnected: discordSnapshot.connected,
     discordRunning: discordSnapshot.running,
     discordCurrentSummary: discordSnapshot.currentSummary ?? null,
@@ -655,6 +672,8 @@ function App() {
   } = createOverlayProps({
     config,
     activeCustomPresetIndex,
+    appliedCustomPresetIndex,
+    appliedCustomPresetName,
     pagedCustomPresets,
     customPresetPageStart,
     safeCustomPresetPage,
@@ -701,6 +720,7 @@ function App() {
     setConfig,
     setCustomPresetPage,
     setActiveCustomPresetIndex,
+    setAppliedCustomPresetIndex,
     setCustomRulesDialogOpen,
     setPresetDetailsForceCustomChoice,
     setPresetStateForceCustomChoice,

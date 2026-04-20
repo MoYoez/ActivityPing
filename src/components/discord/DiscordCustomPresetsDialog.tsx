@@ -1,8 +1,14 @@
 import type { DiscordCustomPreset } from "../../types";
 
+function shortenPresetName(value: string, maxLength = 18) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 3)}...` : value;
+}
+
 export function DiscordCustomPresetsDialog({
   presets,
   activePresetIndex,
+  appliedPresetIndex,
+  appliedPresetName,
   pagedPresets,
   presetPageStart,
   presetPageSize,
@@ -25,6 +31,8 @@ export function DiscordCustomPresetsDialog({
 }: {
   presets: DiscordCustomPreset[];
   activePresetIndex: number | null;
+  appliedPresetIndex: number | null;
+  appliedPresetName: string | null;
   pagedPresets: DiscordCustomPreset[];
   presetPageStart: number;
   presetPageSize: number;
@@ -45,6 +53,11 @@ export function DiscordCustomPresetsDialog({
   onRemovePreset: (index: number) => void;
   onPresetPageChange: (page: number) => void;
 }) {
+  const savePresetButtonLabel =
+    appliedPresetName === null
+      ? "Save current as preset"
+      : `Update "${shortenPresetName(appliedPresetName)}"`;
+
   return (
     <section className="modal modal-open">
       <div
@@ -59,11 +72,20 @@ export function DiscordCustomPresetsDialog({
             <div>
               <p className="eyebrow">Custom</p>
               <h3 id="custom-presets-dialog-title" className="card-title">Custom presets</h3>
-              <p>Browse saved Custom profiles page by page. Click one to open its editor.</p>
+              <p>
+                {appliedPresetName
+                  ? `Currently applied: ${appliedPresetName}. Browse saved Custom profiles page by page.`
+                  : "Browse saved Custom profiles page by page. Click one to open its editor."}
+              </p>
             </div>
             <div className="card-actions gap-2">
-              <button className={primaryButtonClass} type="button" onClick={onSaveCurrentAsPreset}>
-                Save current as preset
+              <button
+                className={primaryButtonClass}
+                type="button"
+                title={appliedPresetName ? `Update "${appliedPresetName}"` : undefined}
+                onClick={onSaveCurrentAsPreset}
+              >
+                {savePresetButtonLabel}
               </button>
               <button className={buttonClass} type="button" onClick={onAddPreset}>
                 Add preset
@@ -103,9 +125,12 @@ export function DiscordCustomPresetsDialog({
                             <p className="mt-1 text-sm text-base-content/70">{summarizePreset(preset)}</p>
                           </div>
                           <div className="card-actions gap-2">
-                            <span className="badge badge-soft">
-                              {activePresetIndex === index ? "Editing" : "Open"}
-                            </span>
+                            {appliedPresetIndex === index ? <span className="badge badge-soft">Applied</span> : null}
+                            {activePresetIndex === index ? (
+                              <span className="badge badge-soft">Editing</span>
+                            ) : (
+                              <span className="badge badge-soft">Open</span>
+                            )}
                             <button
                               className={buttonClass}
                               type="button"

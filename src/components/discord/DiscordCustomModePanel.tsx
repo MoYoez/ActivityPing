@@ -12,6 +12,10 @@ import { DiscordCustomArtworkEditor } from "./DiscordCustomArtworkEditor";
 import { DiscordLineTemplateEditor } from "./DiscordLineTemplateEditor";
 import { DISCORD_ACTIVITY_TYPE_OPTIONS } from "./discordOptions";
 
+function shortenPresetName(value: string, maxLength = 18) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 3)}...` : value;
+}
+
 export function DiscordCustomModePanel({
   activityType,
   detailsFormat,
@@ -30,6 +34,7 @@ export function DiscordCustomModePanel({
   buttons,
   customAdvancedAddonsConfigured,
   presetCount,
+  appliedPresetName,
   partyId,
   partySizeCurrent,
   partySizeMax,
@@ -89,6 +94,7 @@ export function DiscordCustomModePanel({
   buttons: DiscordRichPresenceButtonConfig[];
   customAdvancedAddonsConfigured: boolean;
   presetCount: number;
+  appliedPresetName: string | null;
   partyId: string;
   partySizeCurrent: number | null;
   partySizeMax: number | null;
@@ -134,6 +140,10 @@ export function DiscordCustomModePanel({
   onSaveCurrentAsPreset: () => void;
   onOpenPresets: () => void;
 }) {
+  const appliedPresetButtonLabel = appliedPresetName
+    ? `Update "${shortenPresetName(appliedPresetName)}"`
+    : "Save current as preset";
+
   return (
     <div className="discord-custom-panel rounded-box border border-base-300 bg-base-200/45 p-4 space-y-4">
       <div className="list-editor-summary">
@@ -252,13 +262,21 @@ export function DiscordCustomModePanel({
           <div>
             <strong className="block font-semibold">Custom presets</strong>
             <p className="mt-1 text-sm text-base-content/70">
-              Save ready-to-use Custom profiles for one-click selection and import.
+              {appliedPresetName
+                ? `Currently using ${appliedPresetName}. Saving current settings will update this preset.`
+                : "Save ready-to-use Custom profiles for one-click selection and import."}
             </p>
           </div>
           <div className="card-actions gap-2">
             <span className="badge badge-soft">{presetCount} presets</span>
-            <button className={primaryButtonClass} type="button" onClick={onSaveCurrentAsPreset}>
-              Save current as preset
+            {appliedPresetName ? <span className="badge badge-soft">Preset linked</span> : null}
+            <button
+              className={primaryButtonClass}
+              type="button"
+              title={appliedPresetName ? `Update "${appliedPresetName}"` : undefined}
+              onClick={onSaveCurrentAsPreset}
+            >
+              {appliedPresetButtonLabel}
             </button>
             <button className={buttonClass} type="button" onClick={onOpenPresets}>
               Open presets

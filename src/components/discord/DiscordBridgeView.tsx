@@ -30,6 +30,7 @@ export function DiscordBridgeView({
   discordDetailsForceCustomChoice,
   discordStateForceCustomChoice,
   artworkPublishingMissing,
+  appliedCustomPresetName,
   panelClass,
   panelHeadClass,
   fieldClass,
@@ -98,6 +99,7 @@ export function DiscordBridgeView({
   discordDetailsForceCustomChoice: boolean;
   discordStateForceCustomChoice: boolean;
   artworkPublishingMissing: boolean;
+  appliedCustomPresetName: string | null;
   panelClass: string;
   panelHeadClass: string;
   fieldClass: string;
@@ -235,6 +237,7 @@ export function DiscordBridgeView({
             buttons={config.discordCustomButtons}
             customAdvancedAddonsConfigured={customAdvancedAddonsConfigured}
             presetCount={config.discordCustomPresets.length}
+            appliedPresetName={appliedCustomPresetName}
             partyId={config.discordCustomPartyId}
             partySizeCurrent={config.discordCustomPartySizeCurrent ?? null}
             partySizeMax={config.discordCustomPartySizeMax ?? null}

@@ -19,12 +19,14 @@ interface UseProfileActionsArgs {
   capabilities: ClientCapabilities;
   baseState: AppStatePayload;
   config: ClientConfig;
+  appliedCustomPresetIndex: number | null;
   notify: (tone: NoticeTone, title: string, detail: string) => void;
   setActiveSection: (section: ViewSection) => void;
   setBaseState: (payload: AppStatePayload) => void;
   setConfig: (value: ClientConfig | ((current: ClientConfig) => ClientConfig)) => void;
   setCustomPresetPage: (page: number | ((current: number) => number)) => void;
   setActiveCustomPresetIndex: (index: number | null) => void;
+  setAppliedCustomPresetIndex: (index: number | null) => void;
   setCustomRulesDialogOpen: (open: boolean) => void;
 }
 
@@ -32,12 +34,14 @@ export function useProfileActions({
   capabilities,
   baseState,
   config,
+  appliedCustomPresetIndex,
   notify,
   setActiveSection,
   setBaseState,
   setConfig,
   setCustomPresetPage,
   setActiveCustomPresetIndex,
+  setAppliedCustomPresetIndex,
   setCustomRulesDialogOpen,
 }: UseProfileActionsArgs) {
   async function persistPayload(payload: AppStatePayload, syncConfig: boolean) {
@@ -85,6 +89,23 @@ export function useProfileActions({
 
   function saveCurrentCustomSettingsAsPreset() {
     const nextPreset = createDiscordCustomPresetFromConfig(config);
+    const targetPreset =
+      appliedCustomPresetIndex === null ? null : config.discordCustomPresets[appliedCustomPresetIndex] ?? null;
+
+    if (targetPreset && appliedCustomPresetIndex !== null) {
+      setConfig((current) => ({
+        ...current,
+        discordCustomPresets: current.discordCustomPresets.map((preset, index) =>
+          index === appliedCustomPresetIndex ? { ...nextPreset, name: preset.name } : preset,
+        ),
+      }));
+      setCustomPresetPage(pageForIndex(appliedCustomPresetIndex, CUSTOM_PRESET_PAGE_SIZE));
+      setActiveCustomPresetIndex(appliedCustomPresetIndex);
+      setAppliedCustomPresetIndex(appliedCustomPresetIndex);
+      setCustomRulesDialogOpen(true);
+      return;
+    }
+
     const nextIndex = config.discordCustomPresets.length;
     setConfig((current) => ({
       ...current,
@@ -92,10 +113,11 @@ export function useProfileActions({
     }));
     setCustomPresetPage(pageForIndex(nextIndex, CUSTOM_PRESET_PAGE_SIZE));
     setActiveCustomPresetIndex(nextIndex);
+    setAppliedCustomPresetIndex(nextIndex);
     setCustomRulesDialogOpen(true);
   }
 
-  function applyDiscordCustomPreset(preset: DiscordCustomPreset) {
+  function applyDiscordCustomPreset(preset: DiscordCustomPreset, presetIndex?: number) {
     setConfig((current) => ({
       ...current,
       discordReportMode: "custom",
@@ -121,6 +143,7 @@ export function useProfileActions({
       discordCustomSpectateSecret: preset.spectateSecret,
       discordCustomMatchSecret: preset.matchSecret,
     }));
+    setAppliedCustomPresetIndex(typeof presetIndex === "number" ? presetIndex : null);
   }
 
   return {

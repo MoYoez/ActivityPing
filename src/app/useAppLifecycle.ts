@@ -29,6 +29,7 @@ import type {
 
 interface UseAppLifecycleArgs {
   activeCustomPresetIndex: number | null;
+  appliedCustomPresetIndex: number | null;
   activeRuleIndex: number;
   appliedRuntimeConfigSignature: string | null;
   baseState: AppStatePayload;
@@ -46,6 +47,7 @@ interface UseAppLifecycleArgs {
   runAction: (name: string, work: () => Promise<void>) => Promise<void>;
   startRuntimeSession: () => Promise<void>;
   setActiveCustomPresetIndex: (value: SetStateAction<number | null>) => void;
+  setAppliedCustomPresetIndex: (value: SetStateAction<number | null>) => void;
   setActiveRuleIndex: (value: SetStateAction<number>) => void;
   setAppliedRuntimeConfigSignature: (value: SetStateAction<string | null>) => void;
   setBaseState: (value: SetStateAction<AppStatePayload>) => void;
@@ -66,6 +68,7 @@ interface UseAppLifecycleArgs {
 
 export function useAppLifecycle({
   activeCustomPresetIndex,
+  appliedCustomPresetIndex,
   activeRuleIndex,
   appliedRuntimeConfigSignature,
   baseState,
@@ -83,6 +86,7 @@ export function useAppLifecycle({
   runAction,
   startRuntimeSession,
   setActiveCustomPresetIndex,
+  setAppliedCustomPresetIndex,
   setActiveRuleIndex,
   setAppliedRuntimeConfigSignature,
   setBaseState,
@@ -210,6 +214,12 @@ export function useAppLifecycle({
       setActiveCustomPresetIndex(null);
     }
   }, [activeCustomPresetIndex, config.discordCustomPresets]);
+
+  useEffect(() => {
+    if (appliedCustomPresetIndex !== null && !config.discordCustomPresets[appliedCustomPresetIndex]) {
+      setAppliedCustomPresetIndex(null);
+    }
+  }, [appliedCustomPresetIndex, config.discordCustomPresets]);
 
   useEffect(() => {
     if (activeCustomPresetIndex === null) {

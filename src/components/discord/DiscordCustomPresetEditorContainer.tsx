@@ -46,7 +46,7 @@ export function DiscordCustomPresetEditorContainer({
   normalizePositiveNumberInput: (value: string) => number | null;
   patchPresetAt: (index: number, updater: (preset: DiscordCustomPreset) => DiscordCustomPreset) => void;
   createDiscordButton: () => DiscordRichPresenceButtonConfig;
-  applyPreset: (preset: DiscordCustomPreset) => void;
+  applyPreset: (preset: DiscordCustomPreset, presetIndex?: number) => void;
   onClose: () => void;
   onCloseCustomPresets: () => void;
   setDetailsForceCustomChoice: (value: boolean) => void;
@@ -70,7 +70,7 @@ export function DiscordCustomPresetEditorContainer({
       dangerButtonClass={dangerButtonClass}
       onClose={onClose}
       onUsePreset={() => {
-        applyPreset(preset);
+        applyPreset(preset, presetIndex);
         onClose();
         onCloseCustomPresets();
       }}

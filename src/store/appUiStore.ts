@@ -56,6 +56,7 @@ interface AppUiStore {
   customRulesDialogOpen: boolean;
   customPresetPage: number;
   activeCustomPresetIndex: number | null;
+  appliedCustomPresetIndex: number | null;
   discordDetailsForceCustomChoice: boolean;
   discordStateForceCustomChoice: boolean;
   presetDetailsForceCustomChoice: boolean;
@@ -86,6 +87,7 @@ interface AppUiStore {
   setCustomRulesDialogOpen: (value: SetStateAction<boolean>) => void;
   setCustomPresetPage: (value: SetStateAction<number>) => void;
   setActiveCustomPresetIndex: (value: SetStateAction<number | null>) => void;
+  setAppliedCustomPresetIndex: (value: SetStateAction<number | null>) => void;
   setDiscordDetailsForceCustomChoice: (value: SetStateAction<boolean>) => void;
   setDiscordStateForceCustomChoice: (value: SetStateAction<boolean>) => void;
   setPresetDetailsForceCustomChoice: (value: SetStateAction<boolean>) => void;
@@ -129,6 +131,7 @@ export const useAppUiStore = create<AppUiStore>((set) => ({
   customRulesDialogOpen: false,
   customPresetPage: 0,
   activeCustomPresetIndex: null,
+  appliedCustomPresetIndex: null,
   discordDetailsForceCustomChoice: false,
   discordStateForceCustomChoice: false,
   presetDetailsForceCustomChoice: false,
@@ -161,6 +164,8 @@ export const useAppUiStore = create<AppUiStore>((set) => ({
   setCustomPresetPage: (value) => set((state) => ({ customPresetPage: resolveState(value, state.customPresetPage) })),
   setActiveCustomPresetIndex: (value) =>
     set((state) => ({ activeCustomPresetIndex: resolveState(value, state.activeCustomPresetIndex) })),
+  setAppliedCustomPresetIndex: (value) =>
+    set((state) => ({ appliedCustomPresetIndex: resolveState(value, state.appliedCustomPresetIndex) })),
   setDiscordDetailsForceCustomChoice: (value) =>
     set((state) => ({ discordDetailsForceCustomChoice: resolveState(value, state.discordDetailsForceCustomChoice) })),
   setDiscordStateForceCustomChoice: (value) =>

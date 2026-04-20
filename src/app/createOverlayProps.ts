@@ -23,6 +23,8 @@ interface JsonViewerState {
 interface CreateOverlayPropsArgs {
   config: ClientConfig;
   activeCustomPresetIndex: number | null;
+  appliedCustomPresetIndex: number | null;
+  appliedCustomPresetName: string | null;
   pagedCustomPresets: DiscordCustomPreset[];
   customPresetPageStart: number;
   safeCustomPresetPage: number;
@@ -52,7 +54,7 @@ interface CreateOverlayPropsArgs {
   normalizePositiveNumberInput: (value: string) => number | null;
   summarizePreset: (preset: DiscordCustomPreset) => string;
   alertClass: (tone: "info" | "success" | "warn" | "error") => string;
-  applyPreset: (preset: DiscordCustomPreset) => void;
+  applyPreset: (preset: DiscordCustomPreset, presetIndex?: number) => void;
   patchPresetAt: (index: number, updater: (preset: DiscordCustomPreset) => DiscordCustomPreset) => void;
   onCloseRulesDialog: () => void;
   onSaveCurrentAsPreset: () => void;
@@ -66,9 +68,36 @@ interface CreateOverlayPropsArgs {
   setConfig: Dispatch<SetStateAction<ClientConfig>>;
   setCustomPresetPage: Dispatch<SetStateAction<number>>;
   setActiveCustomPresetIndex: Dispatch<SetStateAction<number | null>>;
+  setAppliedCustomPresetIndex: Dispatch<SetStateAction<number | null>>;
   setCustomRulesDialogOpen: Dispatch<SetStateAction<boolean>>;
   setPresetDetailsForceCustomChoice: Dispatch<SetStateAction<boolean>>;
   setPresetStateForceCustomChoice: Dispatch<SetStateAction<boolean>>;
+}
+
+function remapMovedIndex(currentIndex: number | null, fromIndex: number, toIndex: number) {
+  if (currentIndex === null) {
+    return null;
+  }
+  if (currentIndex === fromIndex) {
+    return toIndex;
+  }
+  if (currentIndex === toIndex) {
+    return fromIndex;
+  }
+  return currentIndex;
+}
+
+function remapRemovedIndex(currentIndex: number | null, removedIndex: number) {
+  if (currentIndex === null) {
+    return null;
+  }
+  if (currentIndex === removedIndex) {
+    return null;
+  }
+  if (currentIndex > removedIndex) {
+    return currentIndex - 1;
+  }
+  return currentIndex;
 }
 
 export function createOverlayProps(args: CreateOverlayPropsArgs) {
@@ -81,6 +110,8 @@ export function createOverlayProps(args: CreateOverlayPropsArgs) {
   const customPresetsDialogProps: ComponentProps<typeof DiscordCustomPresetsDialog> = {
     presets: args.config.discordCustomPresets,
     activePresetIndex: args.activeCustomPresetIndex,
+    appliedPresetIndex: args.appliedCustomPresetIndex,
+    appliedPresetName: args.appliedCustomPresetName,
     pagedPresets: args.pagedCustomPresets,
     presetPageStart: args.customPresetPageStart,
     presetPageSize: CUSTOM_PRESET_PAGE_SIZE,
@@ -113,6 +144,8 @@ export function createOverlayProps(args: CreateOverlayPropsArgs) {
         ...current,
         discordCustomPresets: moveItem(current.discordCustomPresets, index, nextIndex),
       }));
+      args.setActiveCustomPresetIndex((current) => remapMovedIndex(current, index, nextIndex));
+      args.setAppliedCustomPresetIndex((current) => remapMovedIndex(current, index, nextIndex));
       args.setCustomPresetPage(pageForIndex(nextIndex, CUSTOM_PRESET_PAGE_SIZE));
     },
     onMovePresetDown: (index) => {
@@ -121,6 +154,8 @@ export function createOverlayProps(args: CreateOverlayPropsArgs) {
         ...current,
         discordCustomPresets: moveItem(current.discordCustomPresets, index, nextIndex),
       }));
+      args.setActiveCustomPresetIndex((current) => remapMovedIndex(current, index, nextIndex));
+      args.setAppliedCustomPresetIndex((current) => remapMovedIndex(current, index, nextIndex));
       args.setCustomPresetPage(pageForIndex(nextIndex, CUSTOM_PRESET_PAGE_SIZE));
     },
     onRemovePreset: (index) => {
@@ -128,9 +163,8 @@ export function createOverlayProps(args: CreateOverlayPropsArgs) {
         ...current,
         discordCustomPresets: current.discordCustomPresets.filter((_, itemIndex) => itemIndex !== index),
       }));
-      if (args.activeCustomPresetIndex === index) {
-        args.setActiveCustomPresetIndex(null);
-      }
+      args.setActiveCustomPresetIndex((current) => remapRemovedIndex(current, index));
+      args.setAppliedCustomPresetIndex((current) => remapRemovedIndex(current, index));
     },
     onPresetPageChange: (page) =>
       args.setCustomPresetPage(() => clampPage(page, args.config.discordCustomPresets.length, CUSTOM_PRESET_PAGE_SIZE)),

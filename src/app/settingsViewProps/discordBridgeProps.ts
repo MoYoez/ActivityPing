@@ -21,6 +21,7 @@ export function createDiscordBridgeProps(
     discordDetailsForceCustomChoice: args.discordDetailsForceCustomChoice,
     discordStateForceCustomChoice: args.discordStateForceCustomChoice,
     artworkPublishingMissing: args.artworkPublishingMissing,
+    appliedCustomPresetName: args.appliedCustomPresetName,
     panelClass: args.panelClass,
     panelHeadClass: args.panelHeadClass,
     fieldClass: args.fieldClass,

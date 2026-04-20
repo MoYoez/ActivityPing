@@ -63,6 +63,7 @@ export interface CreateSettingsViewPropsArgs {
   discordDetailsForceCustomChoice: boolean;
   discordStateForceCustomChoice: boolean;
   artworkPublishingMissing: boolean;
+  appliedCustomPresetName: string | null;
   discordConnected: boolean;
   discordRunning: boolean;
   discordCurrentSummary: string | null;
