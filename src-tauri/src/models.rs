@@ -98,7 +98,7 @@ pub fn default_capture_history_record_limit() -> u32 {
 }
 
 pub fn default_capture_history_title_limit() -> u32 {
-    5
+    3
 }
 
 pub fn default_app_message_rules_show_process_name() -> bool {

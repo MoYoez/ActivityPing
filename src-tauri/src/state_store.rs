@@ -39,15 +39,9 @@ fn normalize_state(payload: &mut AppStatePayload) {
         payload.locale = DEFAULT_LOCALE.to_string();
     }
     normalize_client_config(&mut payload.config);
-    let history_record_limit = normalize_history_limit(payload.config.capture_history_record_limit);
     let history_title_limit = normalize_history_limit(payload.config.capture_history_title_limit);
-    payload.app_history = normalize_app_history(
-        &payload.app_history,
-        history_record_limit,
-        history_title_limit,
-    );
-    payload.play_source_history =
-        normalize_play_source_history(&payload.play_source_history, history_record_limit);
+    payload.app_history = normalize_app_history(&payload.app_history, history_title_limit);
+    payload.play_source_history = normalize_play_source_history(&payload.play_source_history);
 }
 
 fn normalize_history_limit(value: u32) -> usize {
@@ -62,11 +56,7 @@ fn normalize_optional_string(value: &Option<String>) -> Option<String> {
         .map(str::to_string)
 }
 
-fn normalize_app_history(
-    values: &[AppHistoryEntry],
-    record_limit: usize,
-    title_limit: usize,
-) -> Vec<AppHistoryEntry> {
+fn normalize_app_history(values: &[AppHistoryEntry], title_limit: usize) -> Vec<AppHistoryEntry> {
     let mut result = Vec::new();
     let mut seen = HashSet::new();
 
@@ -90,9 +80,6 @@ fn normalize_app_history(
             status_text: normalize_optional_string(&value.status_text),
             updated_at: normalize_optional_string(&value.updated_at),
         });
-        if result.len() >= record_limit {
-            break;
-        }
     }
 
     result
@@ -125,10 +112,7 @@ fn normalize_title_history(
     result
 }
 
-fn normalize_play_source_history(
-    values: &[PlaySourceHistoryEntry],
-    record_limit: usize,
-) -> Vec<PlaySourceHistoryEntry> {
+fn normalize_play_source_history(values: &[PlaySourceHistoryEntry]) -> Vec<PlaySourceHistoryEntry> {
     let mut result = Vec::new();
     let mut seen = HashSet::new();
 
@@ -148,9 +132,6 @@ fn normalize_play_source_history(
             media_summary: normalize_optional_string(&value.media_summary),
             updated_at: normalize_optional_string(&value.updated_at),
         });
-        if result.len() >= record_limit {
-            break;
-        }
     }
 
     result

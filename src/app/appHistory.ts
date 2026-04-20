@@ -1,7 +1,6 @@
 import type { AppHistoryEntry, PlaySourceHistoryEntry, ReporterActivity } from "../types";
 
 import {
-  DEFAULT_HISTORY_RECORD_LIMIT,
   DEFAULT_HISTORY_TITLE_LIMIT,
   MAX_HISTORY_LIMIT,
   MAX_HISTORY_LIMIT as APP_HISTORY_LIMIT,
@@ -47,7 +46,6 @@ function mergeTitleHistory(existing: AppHistoryEntry | undefined, rawTitle: stri
 
 export function normalizeAppHistory(
   values: unknown,
-  recordLimit = DEFAULT_HISTORY_RECORD_LIMIT,
   titleLimit = DEFAULT_HISTORY_TITLE_LIMIT,
 ): AppHistoryEntry[] {
   if (!Array.isArray(values)) return [];
@@ -68,14 +66,10 @@ export function normalizeAppHistory(
         updatedAt: compactOptionalText(record.updatedAt),
       };
     })
-    .filter((value): value is AppHistoryEntry => Boolean(value?.processName))
-    .slice(0, recordLimit);
+    .filter((value): value is AppHistoryEntry => Boolean(value?.processName));
 }
 
-export function normalizePlaySourceHistory(
-  values: unknown,
-  recordLimit = DEFAULT_HISTORY_RECORD_LIMIT,
-): PlaySourceHistoryEntry[] {
+export function normalizePlaySourceHistory(values: unknown): PlaySourceHistoryEntry[] {
   if (!Array.isArray(values)) return [];
   return values
     .map((value): PlaySourceHistoryEntry | null => {
@@ -102,8 +96,7 @@ export function normalizePlaySourceHistory(
         updatedAt: compactOptionalText(record.updatedAt),
       };
     })
-    .filter((value): value is PlaySourceHistoryEntry => Boolean(value?.source))
-    .slice(0, recordLimit);
+    .filter((value): value is PlaySourceHistoryEntry => Boolean(value?.source));
 }
 
 export function uniqueHistoryValues(values: string[]) {
@@ -147,7 +140,6 @@ export function shouldCaptureHistoryActivity(activity?: ReporterActivity | null)
 export function mergeAppHistory(
   values: AppHistoryEntry[],
   activity: ReporterActivity | null | undefined,
-  recordLimit: number,
   titleLimit: number,
 ) {
   const processName = activity?.processName?.trim() ?? "";
@@ -165,13 +157,12 @@ export function mergeAppHistory(
   if (values[0] && sameAppHistoryContent(values[0], entry)) {
     return values;
   }
-  return [entry, ...values.filter((item) => item.processName.trim().toLowerCase() !== key)].slice(0, recordLimit);
+  return [entry, ...values.filter((item) => item.processName.trim().toLowerCase() !== key)];
 }
 
 export function mergePlaySourceHistory(
   values: PlaySourceHistoryEntry[],
   activity: ReporterActivity | null | undefined,
-  recordLimit: number,
 ) {
   const source = activity?.playSource?.trim().toLowerCase() ?? "";
   if (!source) return values;
@@ -186,7 +177,7 @@ export function mergePlaySourceHistory(
   if (values[0] && samePlaySourceHistoryContent(values[0], entry)) {
     return values;
   }
-  return [entry, ...values.filter((item) => item.source.trim().toLowerCase() !== source)].slice(0, recordLimit);
+  return [entry, ...values.filter((item) => item.source.trim().toLowerCase() !== source)];
 }
 
 export function appHistoryRawTitles(entry: AppHistoryEntry) {

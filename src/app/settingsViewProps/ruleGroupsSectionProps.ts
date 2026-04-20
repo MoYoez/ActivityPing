@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 
 import { RuleGroupsEditorSection } from "../../components/rules/RuleGroupsEditorSection";
+import { openTextFile, saveTextFile } from "../../lib/fileExport";
 import { exportRulesJson, parseRulesJson } from "../../lib/rules";
 import type { CreateSettingsViewPropsArgs } from "../createSettingsViewProps";
 import { createAppMessageRuleGroup } from "../appConfig";
@@ -14,8 +15,6 @@ export function createRuleGroupsSectionProps(
     rulesCount: args.config.appMessageRules.length,
     showProcessName: args.config.appMessageRulesShowProcessName,
     customOverrideEnabled: args.config.discordUseCustomAddonsOverride,
-    rulesImportOpen: args.rulesImportOpen,
-    rulesImportValue: args.rulesImportValue,
     activeRule: args.activeRule,
     activeRuleIndex: args.activeRuleIndex,
     pagedRuleGroups: args.pagedRuleGroups,
@@ -56,38 +55,54 @@ export function createRuleGroupsSectionProps(
       args.setRuleGroupPage(pageForIndex(nextIndex, RULE_GROUP_PAGE_SIZE));
       args.setTitleRulePage(0);
     },
-    onCopyRulesJson: () =>
-      void navigator.clipboard
-        .writeText(exportRulesJson(args.config))
-        .then(() => args.notify("success", "Rules copied", "The local rule JSON was copied to the clipboard."))
-        .catch(() => args.notify("error", "Copy failed", "Clipboard access was not available.")),
-    onToggleImport: () => args.setRulesImportOpen((current) => !current),
-    onRulesImportValueChange: args.setRulesImportValue,
-    onApplyImportedRules: () => {
-      const parsed = parseRulesJson(args.rulesImportValue);
-      if (!parsed.ok) {
-        args.notify("error", "Import failed", parsed.error);
-        return;
-      }
-      args.setConfig((current) => ({
-        ...current,
-        appMessageRules: parsed.data.appMessageRules,
-        appMessageRulesShowProcessName: parsed.data.appMessageRulesShowProcessName,
-        discordUseCustomAddonsOverride: parsed.data.discordUseCustomAddonsOverride,
-        discordCustomPresets: parsed.data.discordCustomPresets,
-        appFilterMode: parsed.data.appFilterMode,
-        appBlacklist: parsed.data.appBlacklist,
-        appWhitelist: parsed.data.appWhitelist,
-        appNameOnlyList: parsed.data.appNameOnlyList,
-        mediaPlaySourceBlocklist: parsed.data.mediaPlaySourceBlocklist,
-      }));
-      args.setRulesImportOpen(false);
-      args.setRulesImportValue("");
-      args.setActiveRuleIndex(0);
-      args.setRuleGroupPage(0);
-      args.setTitleRulePage(0);
-      args.notify("success", "Rules imported", "The rule JSON was written into the current form.");
-    },
+    onExportRulesJson: () =>
+      void (async () => {
+        try {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          const saved = await saveTextFile(
+            `activityping-rules-${timestamp}.json`,
+            exportRulesJson(args.config),
+          );
+          if (!saved) {
+            return;
+          }
+          args.notify("success", "Rules exported", "The rules JSON file was saved.");
+        } catch {
+          args.notify("error", "Export failed", "The rules JSON file could not be saved.");
+        }
+      })(),
+    onImportRulesJson: () =>
+      void (async () => {
+        try {
+          const importedText = await openTextFile();
+          if (!importedText) {
+            return;
+          }
+          const parsed = parseRulesJson(importedText);
+          if (!parsed.ok) {
+            args.notify("error", "Import failed", parsed.error);
+            return;
+          }
+          args.setConfig((current) => ({
+            ...current,
+            appMessageRules: parsed.data.appMessageRules,
+            appMessageRulesShowProcessName: parsed.data.appMessageRulesShowProcessName,
+            discordUseCustomAddonsOverride: parsed.data.discordUseCustomAddonsOverride,
+            discordCustomPresets: parsed.data.discordCustomPresets,
+            appFilterMode: parsed.data.appFilterMode,
+            appBlacklist: parsed.data.appBlacklist,
+            appWhitelist: parsed.data.appWhitelist,
+            appNameOnlyList: parsed.data.appNameOnlyList,
+            mediaPlaySourceBlocklist: parsed.data.mediaPlaySourceBlocklist,
+          }));
+          args.setActiveRuleIndex(0);
+          args.setRuleGroupPage(0);
+          args.setTitleRulePage(0);
+          args.notify("success", "Rules imported", "The rules JSON file was loaded into the current form.");
+        } catch {
+          args.notify("error", "Import failed", "The rules JSON file could not be opened.");
+        }
+      })(),
     onSelectRule: (index) => {
       args.setActiveRuleIndex(index);
       args.setTitleRulePage(0);

@@ -28,6 +28,9 @@ pub fn normalize_client_config(config: &mut ClientConfig) {
     config.heartbeat_interval_ms = config.heartbeat_interval_ms.max(0);
     config.capture_history_record_limit = config.capture_history_record_limit.clamp(1, 50);
     config.capture_history_title_limit = config.capture_history_title_limit.clamp(1, 50);
+    if config.capture_history_title_limit == 5 && config.capture_history_record_limit != 5 {
+        config.capture_history_title_limit = config.capture_history_record_limit;
+    }
     config.runtime_autostart_enabled = config.runtime_autostart_enabled
         || config.legacy_reporter_enabled
         || config.legacy_discord_enabled;

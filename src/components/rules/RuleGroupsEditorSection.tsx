@@ -9,8 +9,6 @@ export function RuleGroupsEditorSection({
   rulesCount,
   showProcessName,
   customOverrideEnabled,
-  rulesImportOpen,
-  rulesImportValue,
   activeRule,
   activeRuleIndex,
   pagedRuleGroups,
@@ -42,10 +40,8 @@ export function RuleGroupsEditorSection({
   onShowProcessNameChange,
   onCustomOverrideChange,
   onAddRuleGroup,
-  onCopyRulesJson,
-  onToggleImport,
-  onRulesImportValueChange,
-  onApplyImportedRules,
+  onExportRulesJson,
+  onImportRulesJson,
   onSelectRule,
   onRuleGroupPageChange,
   onMoveActiveRuleUp,
@@ -68,8 +64,6 @@ export function RuleGroupsEditorSection({
   rulesCount: number;
   showProcessName: boolean;
   customOverrideEnabled: boolean;
-  rulesImportOpen: boolean;
-  rulesImportValue: string;
   activeRule: AppMessageRuleGroup | null;
   activeRuleIndex: number;
   pagedRuleGroups: AppMessageRuleGroup[];
@@ -101,10 +95,8 @@ export function RuleGroupsEditorSection({
   onShowProcessNameChange: (value: boolean) => void;
   onCustomOverrideChange: (value: boolean) => void;
   onAddRuleGroup: () => void;
-  onCopyRulesJson: () => void;
-  onToggleImport: () => void;
-  onRulesImportValueChange: (value: string) => void;
-  onApplyImportedRules: () => void;
+  onExportRulesJson: () => void;
+  onImportRulesJson: () => void;
   onSelectRule: (index: number) => void;
   onRuleGroupPageChange: (page: number) => void;
   onMoveActiveRuleUp: () => void;
@@ -169,32 +161,13 @@ export function RuleGroupsEditorSection({
         <button className={primaryButtonClass} type="button" onClick={onAddRuleGroup}>
           Add rule group
         </button>
-        <button className={buttonClass} type="button" onClick={onCopyRulesJson}>
-          Copy rules JSON
+        <button className={buttonClass} type="button" onClick={onExportRulesJson}>
+          Export Rules Json
         </button>
-        <button className={buttonClass} type="button" onClick={onToggleImport}>
-          {rulesImportOpen ? "Hide import" : "Import rules JSON"}
+        <button className={buttonClass} type="button" onClick={onImportRulesJson}>
+          Import Rules Json
         </button>
       </div>
-
-      {rulesImportOpen ? (
-        <div className="import-panel">
-          <label className={fieldClass}>
-            <span>Rules JSON</span>
-            <textarea
-              className={textareaClass}
-              value={rulesImportValue}
-              onChange={(e) => onRulesImportValueChange(e.currentTarget.value)}
-              placeholder='{"version":2,"rules":{"appMessageRules":[]}}'
-            />
-          </label>
-          <div className="card-actions gap-2">
-            <button className={primaryButtonClass} type="button" onClick={onApplyImportedRules}>
-              Apply imported rules
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <div className="rules-shell">
         <div className="rule-list-panel rounded-box border border-base-300 bg-base-200/45 p-4">

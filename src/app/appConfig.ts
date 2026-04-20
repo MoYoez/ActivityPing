@@ -12,7 +12,7 @@ import type {
   DiscordRichPresenceButtonConfig,
 } from "../types";
 
-import { DEFAULT_HISTORY_RECORD_LIMIT, DEFAULT_HISTORY_TITLE_LIMIT } from "./appConstants";
+import { DEFAULT_HISTORY_TITLE_LIMIT } from "./appConstants";
 import { clampHistoryLimit, normalizeAppHistory, normalizePlaySourceHistory } from "./appHistory";
 import { discordActivityTypeText } from "./appFormatting";
 
@@ -129,13 +129,12 @@ export function validateArtworkPublishing(config: ClientConfig) {
 
 export function buildPayload(baseState: AppStatePayload, config: ClientConfig): AppStatePayload {
   const normalizedConfig = normalizeClientConfig(config);
-  const historyRecordLimit = clampHistoryLimit(normalizedConfig.captureHistoryRecordLimit, DEFAULT_HISTORY_RECORD_LIMIT);
   const historyTitleLimit = clampHistoryLimit(normalizedConfig.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
   return {
     ...baseState,
     config: normalizedConfig,
-    appHistory: normalizeAppHistory(baseState.appHistory, historyRecordLimit, historyTitleLimit),
-    playSourceHistory: normalizePlaySourceHistory(baseState.playSourceHistory, historyRecordLimit),
+    appHistory: normalizeAppHistory(baseState.appHistory, historyTitleLimit),
+    playSourceHistory: normalizePlaySourceHistory(baseState.playSourceHistory),
     locale: "en-US",
   };
 }

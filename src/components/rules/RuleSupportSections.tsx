@@ -15,7 +15,6 @@ export function RuleSupportSections({
   nameOnlyInput,
   mediaSourceInput,
   captureReportedAppsEnabled,
-  historyRecordLimit,
   historyTitleLimit,
   appHistory,
   playSourceHistory,
@@ -44,10 +43,9 @@ export function RuleSupportSections({
   onRemoveNameOnly,
   onRemoveMediaSource,
   onCaptureReportedAppsChange,
-  onHistoryRecordLimitChange,
   onHistoryTitleLimitChange,
   formatDate,
-  onCopyHistoryJson,
+  onExportHistoryJson,
   onClearHistory,
 }: {
   appFilterMode: AppFilterMode;
@@ -62,7 +60,6 @@ export function RuleSupportSections({
   nameOnlyInput: string;
   mediaSourceInput: string;
   captureReportedAppsEnabled: boolean;
-  historyRecordLimit: number;
   historyTitleLimit: number;
   appHistory: AppHistoryEntry[];
   playSourceHistory: PlaySourceHistoryEntry[];
@@ -91,10 +88,9 @@ export function RuleSupportSections({
   onRemoveNameOnly: (index: number) => void;
   onRemoveMediaSource: (index: number) => void;
   onCaptureReportedAppsChange: (value: boolean) => void;
-  onHistoryRecordLimitChange: (value: string) => void;
   onHistoryTitleLimitChange: (value: string) => void;
   formatDate: (value?: string | null) => string;
-  onCopyHistoryJson: () => void;
+  onExportHistoryJson: () => void;
   onClearHistory: () => void;
 }) {
   return (
@@ -201,23 +197,12 @@ export function RuleSupportSections({
           <label className={toggleTileClass}>
             <div>
               <strong>Capture reported apps</strong>
-              <span>Save recent app and play-source records for local suggestions and export.</span>
+              <span>Save app and play-source records for local suggestions and export.</span>
             </div>
             <input className="toggle toggle-primary" type="checkbox" checked={captureReportedAppsEnabled} onChange={(e) => onCaptureReportedAppsChange(e.currentTarget.checked)} />
           </label>
         </div>
         <div className="field-grid compact-fields">
-          <label className={fieldClass}>
-            <span>Records per list</span>
-            <input
-              className={inputClass}
-              type="number"
-              min={minHistoryLimit}
-              max={maxHistoryLimit}
-              value={historyRecordLimit}
-              onChange={(e) => onHistoryRecordLimitChange(e.currentTarget.value)}
-            />
-          </label>
           <label className={fieldClass}>
             <span>Raw titles per app</span>
             <input
@@ -234,14 +219,13 @@ export function RuleSupportSections({
         <HistoryRecordPanels
           appHistory={appHistory}
           playSourceHistory={playSourceHistory}
-          historyRecordLimit={historyRecordLimit}
           historyTitleLimit={historyTitleLimit}
           formatDate={formatDate}
         />
 
         <div className="card-actions gap-2">
-          <button className={buttonClass} type="button" onClick={onCopyHistoryJson}>
-            Copy history JSON
+          <button className={buttonClass} type="button" onClick={onExportHistoryJson}>
+            Export History Json
           </button>
           <button className={dangerButtonClass} type="button" onClick={onClearHistory}>
             Clear history

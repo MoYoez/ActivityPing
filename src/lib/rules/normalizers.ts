@@ -21,6 +21,15 @@ import {
 export function normalizeClientConfig(config: ClientConfig): ClientConfig {
   const discordDetailsFormat = normalizeDiscordLineFormat(config.discordDetailsFormat, "{activity}");
   const discordStateFormat = normalizeDiscordLineFormat(config.discordStateFormat, "{context}");
+  const normalizedHistoryRecordLimit = normalizeHistoryLimit(config.captureHistoryRecordLimit, 3);
+  const normalizedHistoryTitleLimit = normalizeHistoryLimit(
+    config.captureHistoryTitleLimit,
+    normalizedHistoryRecordLimit,
+  );
+  const captureHistoryTitleLimit =
+    normalizedHistoryTitleLimit === 5 && normalizedHistoryRecordLimit !== 5
+      ? normalizedHistoryRecordLimit
+      : normalizedHistoryTitleLimit;
   const legacyConfig = config as ClientConfig & {
     reporterEnabled?: unknown;
     discordEnabled?: unknown;
@@ -130,8 +139,8 @@ export function normalizeClientConfig(config: ClientConfig): ClientConfig {
       .filter((rule): rule is DiscordCustomPreset => rule !== null),
     launchOnStartup: Boolean(config.launchOnStartup),
     captureReportedAppsEnabled: config.captureReportedAppsEnabled !== false,
-    captureHistoryRecordLimit: normalizeHistoryLimit(config.captureHistoryRecordLimit, 3),
-    captureHistoryTitleLimit: normalizeHistoryLimit(config.captureHistoryTitleLimit, 5),
+    captureHistoryRecordLimit: normalizedHistoryRecordLimit,
+    captureHistoryTitleLimit,
     appMessageRules: (Array.isArray(config.appMessageRules) ? config.appMessageRules : [])
       .map((rule) => normalizeRuleGroup(rule))
       .filter((rule): rule is AppMessageRuleGroup => rule !== null),

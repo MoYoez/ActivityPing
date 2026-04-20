@@ -2,7 +2,6 @@ import { useEffect, useRef, type SetStateAction } from "react";
 
 import {
   CUSTOM_PRESET_PAGE_SIZE,
-  DEFAULT_HISTORY_RECORD_LIMIT,
   DEFAULT_HISTORY_TITLE_LIMIT,
   RUNTIME_LOG_PAGE_SIZE,
   RULE_GROUP_PAGE_SIZE,
@@ -111,12 +110,11 @@ export function useAppLifecycle({
       const state = await loadAppState();
       if (cancelled) return;
       const resolvedConfig = normalizeClientConfig(state.config);
-      const historyRecordLimit = clampHistoryLimit(resolvedConfig.captureHistoryRecordLimit, DEFAULT_HISTORY_RECORD_LIMIT);
       const historyTitleLimit = clampHistoryLimit(resolvedConfig.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
       const payload = {
         config: resolvedConfig,
-        appHistory: normalizeAppHistory(state.appHistory, historyRecordLimit, historyTitleLimit),
-        playSourceHistory: normalizePlaySourceHistory(state.playSourceHistory, historyRecordLimit),
+        appHistory: normalizeAppHistory(state.appHistory, historyTitleLimit),
+        playSourceHistory: normalizePlaySourceHistory(state.playSourceHistory),
         locale: "en-US",
       };
       setBaseState(payload);
@@ -249,16 +247,11 @@ export function useAppLifecycle({
 
   useEffect(() => {
     if (!hydrated || !config.captureReportedAppsEnabled) return;
-    const historyRecordLimit = clampHistoryLimit(config.captureHistoryRecordLimit, DEFAULT_HISTORY_RECORD_LIMIT);
     const historyTitleLimit = clampHistoryLimit(config.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
     const nextAppHistory = shouldCaptureHistoryActivity(reporterSnapshot.currentActivity)
-      ? mergeAppHistory(baseState.appHistory, reporterSnapshot.currentActivity, historyRecordLimit, historyTitleLimit)
+      ? mergeAppHistory(baseState.appHistory, reporterSnapshot.currentActivity, historyTitleLimit)
       : baseState.appHistory;
-    const nextPlaySourceHistory = mergePlaySourceHistory(
-      baseState.playSourceHistory,
-      reporterSnapshot.currentActivity,
-      historyRecordLimit,
-    );
+    const nextPlaySourceHistory = mergePlaySourceHistory(baseState.playSourceHistory, reporterSnapshot.currentActivity);
     if (sameJsonValue(nextAppHistory, baseState.appHistory) && sameJsonValue(nextPlaySourceHistory, baseState.playSourceHistory)) return;
     const payload = { ...baseState, appHistory: nextAppHistory, playSourceHistory: nextPlaySourceHistory };
     void saveAppState(payload)
@@ -267,7 +260,6 @@ export function useAppLifecycle({
   }, [
     hydrated,
     config.captureReportedAppsEnabled,
-    config.captureHistoryRecordLimit,
     config.captureHistoryTitleLimit,
     reporterSnapshot.currentActivity?.processName,
     reporterSnapshot.currentActivity?.processTitle,

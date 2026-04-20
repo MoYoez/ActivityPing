@@ -1,9 +1,9 @@
 import type { ComponentProps } from "react";
 
 import { RuleSupportSections } from "../../components/rules/RuleSupportSections";
+import { saveTextFile } from "../../lib/fileExport";
 import { appendUniqueListValue } from "../appConfig";
 import {
-  DEFAULT_HISTORY_RECORD_LIMIT,
   DEFAULT_HISTORY_TITLE_LIMIT,
   MAX_HISTORY_LIMIT,
   MIN_HISTORY_LIMIT,
@@ -27,7 +27,6 @@ export function createRuleSupportSectionProps(
     nameOnlyInput: args.nameOnlyInput,
     mediaSourceInput: args.mediaSourceInput,
     captureReportedAppsEnabled: args.config.captureReportedAppsEnabled,
-    historyRecordLimit: args.historyRecordLimit,
     historyTitleLimit: args.historyTitleLimit,
     appHistory: args.baseState.appHistory,
     playSourceHistory: args.baseState.playSourceHistory,
@@ -86,16 +85,25 @@ export function createRuleSupportSectionProps(
         mediaPlaySourceBlocklist: current.mediaPlaySourceBlocklist.filter((_, itemIndex) => itemIndex !== index),
       })),
     onCaptureReportedAppsChange: (value) => args.update("captureReportedAppsEnabled", value),
-    onHistoryRecordLimitChange: (value) =>
-      args.update("captureHistoryRecordLimit", clampHistoryLimit(value, DEFAULT_HISTORY_RECORD_LIMIT)),
     onHistoryTitleLimitChange: (value) =>
       args.update("captureHistoryTitleLimit", clampHistoryLimit(value, DEFAULT_HISTORY_TITLE_LIMIT)),
     formatDate: args.formatDate,
-    onCopyHistoryJson: () =>
-      void navigator.clipboard
-        .writeText(JSON.stringify({ appHistory: args.baseState.appHistory, playSourceHistory: args.baseState.playSourceHistory }, null, 2))
-        .then(() => args.notify("success", "History copied", "Local history records were copied to the clipboard."))
-        .catch(() => args.notify("error", "Copy failed", "Clipboard access was not available.")),
+    onExportHistoryJson: () =>
+      void (async () => {
+        try {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          const saved = await saveTextFile(
+            `activityping-history-${timestamp}.json`,
+            JSON.stringify({ appHistory: args.baseState.appHistory, playSourceHistory: args.baseState.playSourceHistory }, null, 2),
+          );
+          if (!saved) {
+            return;
+          }
+          args.notify("success", "History exported", "The history JSON file was saved.");
+        } catch {
+          args.notify("error", "Export failed", "The history JSON file could not be saved.");
+        }
+      })(),
     onClearHistory: () => {
       const payload = { ...args.baseState, appHistory: [], playSourceHistory: [] };
       void args.persistPayload(payload, false).then(() =>

@@ -191,7 +191,7 @@ export function GeneralSettingsSections({
             <strong>{ruleGroupCount}</strong>
           </div>
           <div className={statCardClass}>
-            <span>Saved apps</span>
+            <span>Captured apps</span>
             <strong>{savedAppsCount}</strong>
           </div>
           <div className={statCardClass}>

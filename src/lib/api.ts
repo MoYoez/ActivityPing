@@ -130,7 +130,7 @@ export function defaultClientConfig(): ClientConfig {
     launchOnStartup: false,
     captureReportedAppsEnabled: true,
     captureHistoryRecordLimit: 3,
-    captureHistoryTitleLimit: 5,
+    captureHistoryTitleLimit: 3,
     appMessageRules: [],
     appMessageRulesShowProcessName: false,
     appFilterMode: "blacklist",

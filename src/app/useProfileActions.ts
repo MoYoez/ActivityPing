@@ -23,8 +23,6 @@ interface UseProfileActionsArgs {
   setActiveSection: (section: ViewSection) => void;
   setBaseState: (payload: AppStatePayload) => void;
   setConfig: (value: ClientConfig | ((current: ClientConfig) => ClientConfig)) => void;
-  setRulesImportOpen: (open: boolean) => void;
-  setRulesImportValue: (value: string) => void;
   setCustomPresetPage: (page: number | ((current: number) => number)) => void;
   setActiveCustomPresetIndex: (index: number | null) => void;
   setCustomRulesDialogOpen: (open: boolean) => void;
@@ -38,8 +36,6 @@ export function useProfileActions({
   setActiveSection,
   setBaseState,
   setConfig,
-  setRulesImportOpen,
-  setRulesImportValue,
   setCustomPresetPage,
   setActiveCustomPresetIndex,
   setCustomRulesDialogOpen,
@@ -84,8 +80,6 @@ export function useProfileActions({
 
   function discardDraftChanges() {
     setConfig(normalizeClientConfig(baseState.config));
-    setRulesImportOpen(false);
-    setRulesImportValue("");
     notify("info", "Draft reverted", "The current form was reset to the last saved settings.");
   }
 

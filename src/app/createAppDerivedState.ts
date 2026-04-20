@@ -1,7 +1,4 @@
-import {
-  DEFAULT_HISTORY_RECORD_LIMIT,
-  DEFAULT_HISTORY_TITLE_LIMIT,
-} from "./appConstants";
+import { DEFAULT_HISTORY_TITLE_LIMIT } from "./appConstants";
 import { appHistoryRawTitles, clampHistoryLimit } from "./appHistory";
 import {
   activityText,
@@ -70,7 +67,6 @@ export function createAppDerivedState({
       activeRule?.spectateSecret.trim() ||
       activeRule?.matchSecret.trim(),
   );
-  const historyRecordLimit = clampHistoryLimit(config.captureHistoryRecordLimit, DEFAULT_HISTORY_RECORD_LIMIT);
   const historyTitleLimit = clampHistoryLimit(config.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
   const appRawTitleCount = baseState.appHistory.reduce((total, entry) => total + appHistoryRawTitles(entry).length, 0);
   const artworkPublishingMissing =
@@ -167,7 +163,6 @@ export function createAppDerivedState({
     customAdvancedAddonsConfigured,
     customAddonsConfigured,
     activeRuleAdvancedAddonsConfigured,
-    historyRecordLimit,
     historyTitleLimit,
     appRawTitleCount,
     artworkPublishingMissing,

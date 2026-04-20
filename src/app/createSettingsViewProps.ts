@@ -38,8 +38,6 @@ export interface CreateSettingsViewPropsArgs {
   whitelistInput: string;
   nameOnlyInput: string;
   mediaSourceInput: string;
-  rulesImportOpen: boolean;
-  rulesImportValue: string;
   activeRule: AppMessageRuleGroup | null;
   activeRuleIndex: number;
   pagedRuleGroups: AppMessageRuleGroup[];
@@ -53,7 +51,6 @@ export interface CreateSettingsViewPropsArgs {
   activeTitleRuleCount: number;
   activeRuleAdvancedAddonsConfigured: boolean;
   customAddonsConfigured: boolean;
-  historyRecordLimit: number;
   historyTitleLimit: number;
   appRawTitleCount: number;
   activeDiscordModeName: string;
@@ -123,8 +120,6 @@ export interface CreateSettingsViewPropsArgs {
   onOpenCustomPresets: () => void;
   onOpenRules: () => void;
   setConfig: Dispatch<SetStateAction<ClientConfig>>;
-  setRulesImportOpen: Dispatch<SetStateAction<boolean>>;
-  setRulesImportValue: Dispatch<SetStateAction<string>>;
   setActiveRuleIndex: Dispatch<SetStateAction<number>>;
   setRuleGroupPage: Dispatch<SetStateAction<number>>;
   setTitleRulePage: Dispatch<SetStateAction<number>>;
