@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+
 import type { DiscordCustomAsset } from "../../types";
 import { useDiscordCustomAssetPreviews } from "./useDiscordCustomAssetPreviews";
 
@@ -32,8 +34,12 @@ export function DiscordCustomAssetPickerDialog({
 }) {
   const { previewMap, loading } = useDiscordCustomAssetPreviews(assets);
 
-  return (
-    <section className="modal modal-open">
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <section className="modal modal-open z-[1100]">
       <div
         className="modal-box w-11/12 max-w-5xl p-0"
         role="dialog"
@@ -96,6 +102,7 @@ export function DiscordCustomAssetPickerDialog({
           )}
         </div>
       </div>
-    </section>
+    </section>,
+    document.body,
   );
 }

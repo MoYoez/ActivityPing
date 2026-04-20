@@ -12,8 +12,8 @@ import { DiscordCustomArtworkEditor } from "./DiscordCustomArtworkEditor";
 import { DiscordLineTemplateEditor } from "./DiscordLineTemplateEditor";
 import { DISCORD_ACTIVITY_TYPE_OPTIONS } from "./discordOptions";
 
-function shortenPresetName(value: string, maxLength = 18) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 3)}...` : value;
+function presetCountLabel(count: number) {
+  return `${count} preset${count === 1 ? "" : "s"}`;
 }
 
 export function DiscordCustomModePanel({
@@ -141,7 +141,7 @@ export function DiscordCustomModePanel({
   onOpenPresets: () => void;
 }) {
   const appliedPresetButtonLabel = appliedPresetName
-    ? `Update "${shortenPresetName(appliedPresetName)}"`
+    ? "Update applied preset"
     : "Save current as preset";
 
   return (
@@ -263,17 +263,16 @@ export function DiscordCustomModePanel({
             <strong className="block font-semibold">Custom presets</strong>
             <p className="mt-1 text-sm text-base-content/70">
               {appliedPresetName
-                ? `Currently using ${appliedPresetName}. Saving current settings will update this preset.`
+                ? `Applied preset: ${appliedPresetName}`
                 : "Save ready-to-use Custom profiles for one-click selection and import."}
             </p>
           </div>
           <div className="card-actions gap-2">
-            <span className="badge badge-soft">{presetCount} presets</span>
-            {appliedPresetName ? <span className="badge badge-soft">Preset linked</span> : null}
+            <span className="badge badge-soft">{presetCountLabel(presetCount)}</span>
             <button
               className={primaryButtonClass}
               type="button"
-              title={appliedPresetName ? `Update "${appliedPresetName}"` : undefined}
+              title={appliedPresetName ? `Update applied preset: ${appliedPresetName}` : undefined}
               onClick={onSaveCurrentAsPreset}
             >
               {appliedPresetButtonLabel}

@@ -1,9 +1,5 @@
 import type { DiscordCustomPreset } from "../../types";
 
-function shortenPresetName(value: string, maxLength = 18) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 3)}...` : value;
-}
-
 export function DiscordCustomPresetsDialog({
   presets,
   activePresetIndex,
@@ -56,7 +52,7 @@ export function DiscordCustomPresetsDialog({
   const savePresetButtonLabel =
     appliedPresetName === null
       ? "Save current as preset"
-      : `Update "${shortenPresetName(appliedPresetName)}"`;
+      : "Update applied preset";
 
   return (
     <section className="modal modal-open">
@@ -74,7 +70,7 @@ export function DiscordCustomPresetsDialog({
               <h3 id="custom-presets-dialog-title" className="card-title">Custom presets</h3>
               <p>
                 {appliedPresetName
-                  ? `Currently applied: ${appliedPresetName}. Browse saved Custom profiles page by page.`
+                  ? `Applied preset: ${appliedPresetName}`
                   : "Browse saved Custom profiles page by page. Click one to open its editor."}
               </p>
             </div>
@@ -82,7 +78,7 @@ export function DiscordCustomPresetsDialog({
               <button
                 className={primaryButtonClass}
                 type="button"
-                title={appliedPresetName ? `Update "${appliedPresetName}"` : undefined}
+                title={appliedPresetName ? `Update applied preset: ${appliedPresetName}` : undefined}
                 onClick={onSaveCurrentAsPreset}
               >
                 {savePresetButtonLabel}

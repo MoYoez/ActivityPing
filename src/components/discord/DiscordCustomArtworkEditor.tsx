@@ -91,7 +91,7 @@ export function DiscordCustomArtworkEditor({
           <strong className="block font-semibold">{title}</strong>
           <p className="mt-1 text-sm text-base-content/70">{description}</p>
         </div>
-        <span className="badge badge-soft">Asset slots</span>
+        <span className="badge badge-soft shrink-0 self-start whitespace-nowrap">Asset slots</span>
       </div>
 
       <div className="field-grid compact-fields">
