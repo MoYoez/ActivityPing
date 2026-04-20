@@ -26,7 +26,7 @@ export function DiscordArtworkPublishingPanel({
       </div>
       {artworkPublishingMissing ? (
         <div className="alert alert-warning alert-soft text-sm">
-          <span>Artwork publishing needs an uploader service URL before these artwork settings can be saved.</span>
+          <span>Artwork publishing needs an uploader service URL before app artwork, music artwork, or Custom Gallery images can be saved.</span>
         </div>
       ) : null}
       <div className="field-grid">

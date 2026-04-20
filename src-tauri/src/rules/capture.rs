@@ -1,4 +1,7 @@
-use crate::models::{AppFilterMode, ClientConfig, DiscordReportMode};
+use crate::models::{
+    AppFilterMode, ClientConfig, DiscordCustomAppIconSource, DiscordCustomArtworkSource,
+    DiscordReportMode,
+};
 
 fn requires_process_name_for_filters(config: &ClientConfig) -> bool {
     matches!(config.app_filter_mode, AppFilterMode::Whitelist)
@@ -32,12 +35,32 @@ pub fn should_capture_window_title_for_reporting(config: &ClientConfig) -> bool 
 pub fn should_capture_media_for_reporting(config: &ClientConfig) -> bool {
     match config.discord_report_mode {
         DiscordReportMode::App => false,
+        DiscordReportMode::Custom => {
+            config.report_media
+                || config.report_play_source
+                || config.discord_custom_artwork_source == DiscordCustomArtworkSource::Music
+                || config.discord_custom_app_icon_source == DiscordCustomAppIconSource::Source
+        }
         _ => config.report_media || config.report_play_source,
     }
 }
 
 pub fn should_capture_foreground_app_icon_for_reporting(config: &ClientConfig) -> bool {
-    config.discord_use_app_artwork && config.discord_report_mode != DiscordReportMode::Music
+    (config.discord_use_app_artwork && config.discord_report_mode != DiscordReportMode::Music)
+        || matches!(
+            config.discord_report_mode,
+            DiscordReportMode::Custom
+        ) && matches!(
+            config.discord_custom_artwork_source,
+            DiscordCustomArtworkSource::App
+        )
+        || matches!(
+            config.discord_report_mode,
+            DiscordReportMode::Custom
+        ) && matches!(
+            config.discord_custom_app_icon_source,
+            DiscordCustomAppIconSource::App
+        )
 }
 
 pub fn should_capture_foreground_snapshot_for_reporting(config: &ClientConfig) -> bool {

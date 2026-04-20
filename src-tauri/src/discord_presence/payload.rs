@@ -24,6 +24,7 @@ pub(super) struct DiscordPresenceArtwork {
     pub(super) content_type: String,
     pub(super) hover_text: String,
     pub(super) cache_key: String,
+    pub(super) asset_kind: DiscordPresenceAssetKind,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,6 +40,13 @@ pub(super) struct DiscordPresenceIcon {
     pub(super) content_type: String,
     pub(super) hover_text: String,
     pub(super) cache_key: String,
+    pub(super) asset_kind: DiscordPresenceAssetKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum DiscordPresenceAssetKind {
+    AppIcon,
+    MusicArtwork,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

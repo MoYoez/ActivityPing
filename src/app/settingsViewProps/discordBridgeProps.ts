@@ -49,6 +49,14 @@ export function createDiscordBridgeProps(
     onDiscordStateForceCustomChoiceChange: args.setDiscordStateForceCustomChoice,
     onDiscordDetailsFormatChange: (value) => args.update("discordDetailsFormat", value),
     onDiscordStateFormatChange: (value) => args.update("discordStateFormat", value),
+    onDiscordCustomArtworkSourceChange: (value) => args.update("discordCustomArtworkSource", value),
+    onDiscordCustomArtworkTextModeChange: (value) => args.update("discordCustomArtworkTextMode", value),
+    onDiscordCustomArtworkTextChange: (value) => args.update("discordCustomArtworkText", value),
+    onDiscordCustomArtworkAssetIdChange: (value) => args.update("discordCustomArtworkAssetId", value),
+    onDiscordCustomAppIconSourceChange: (value) => args.update("discordCustomAppIconSource", value),
+    onDiscordCustomAppIconTextModeChange: (value) => args.update("discordCustomAppIconTextMode", value),
+    onDiscordCustomAppIconTextChange: (value) => args.update("discordCustomAppIconText", value),
+    onDiscordCustomAppIconAssetIdChange: (value) => args.update("discordCustomAppIconAssetId", value),
     onPatchDiscordButtonAt: args.patchDiscordButtonAt,
     onRemoveDiscordButtonAt: (index) =>
       args.setConfig((current) => ({

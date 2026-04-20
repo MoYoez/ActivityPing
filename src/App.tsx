@@ -33,6 +33,8 @@ import {
 } from "./app/appConstants";
 import {
   normalizePositiveNumberInput,
+  clearDiscordCustomAssetReferences,
+  replaceDiscordCustomAssets,
   summarizeDiscordCustomPreset,
 } from "./app/appConfig";
 import { createConfigEditorActions } from "./app/createConfigEditorActions";
@@ -59,12 +61,18 @@ import { useRuntimeActions } from "./app/useRuntimeActions";
 import appIcon from "./assets/app-icon-base.png";
 import { AppOverlays } from "./components/app/AppOverlays";
 import { AboutPage } from "./components/pages/AboutPage";
+import { ResourcesPage } from "./components/pages/ResourcesPage";
 import { RuntimePage } from "./components/pages/RuntimePage";
 import { SECTION_COPY, SECTION_ORDER, type ViewSection } from "./components/pages/pageSections";
 import { SettingsPage } from "./components/pages/SettingsPage";
 import { AppShellLayout } from "./components/layout/AppShellLayout";
 import { RulesDialogContent } from "./components/rules/RulesDialogContent";
-import { hideToTray, loadAppState } from "./lib/api";
+import {
+  deleteDiscordCustomAsset,
+  hideToTray,
+  importDiscordCustomAsset,
+  loadAppState,
+} from "./lib/api";
 import { normalizeClientConfig } from "./lib/rules";
 import { type NoticeTone } from "./store/appUiStore";
 import { useAppUiState } from "./store/useAppUiState";
@@ -78,6 +86,21 @@ interface TrayQuickSwitchNotice {
   detail: string;
   reloadState: boolean;
   refreshRuntime?: boolean;
+}
+
+async function fileToBase64(file: File) {
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < buffer.length; index += chunkSize) {
+    binary += String.fromCharCode(...buffer.subarray(index, index + chunkSize));
+  }
+  return window.btoa(binary);
+}
+
+function inferAssetName(fileName: string) {
+  const trimmed = fileName.trim();
+  return trimmed.replace(/\.[^.]+$/, "").trim() || "Custom asset";
 }
 
 function App() {
@@ -328,6 +351,58 @@ function App() {
     }
   }
 
+  function syncDiscordCustomAssets(assets: Parameters<typeof replaceDiscordCustomAssets>[1]) {
+    setBaseState((current) => ({
+      ...current,
+      config: replaceDiscordCustomAssets(current.config, assets),
+    }));
+    setConfig((current) => replaceDiscordCustomAssets(current, assets));
+  }
+
+  function syncDiscordCustomAssetsAfterDelete(
+    assetId: string,
+    assets: Parameters<typeof replaceDiscordCustomAssets>[1],
+  ) {
+    setBaseState((current) => ({
+      ...current,
+      config: replaceDiscordCustomAssets(clearDiscordCustomAssetReferences(current.config, assetId), assets),
+    }));
+    setConfig((current) => replaceDiscordCustomAssets(clearDiscordCustomAssetReferences(current, assetId), assets));
+  }
+
+  async function handleImportDiscordCustomAssetFiles(files: File[]) {
+    let latestAssets = null;
+    for (const file of files) {
+      const contentType = file.type.trim().toLowerCase();
+      if (contentType !== "image/png" && contentType !== "image/jpeg" && contentType !== "image/jpg") {
+        throw new Error(`"${file.name}" is not a PNG or JPEG image.`);
+      }
+      latestAssets = await importDiscordCustomAsset({
+        name: inferAssetName(file.name),
+        fileName: file.name,
+        contentType: contentType === "image/jpg" ? "image/jpeg" : contentType,
+        base64Data: await fileToBase64(file),
+      });
+      syncDiscordCustomAssets(latestAssets);
+    }
+
+    if (latestAssets) {
+      notify(
+        "success",
+        files.length === 1 ? "Image added to gallery" : "Images added to gallery",
+        files.length === 1
+          ? "The image is now ready in the Gallery and Custom artwork pickers."
+          : `${files.length} images are now ready in the Gallery and Custom artwork pickers.`,
+      );
+    }
+  }
+
+  async function handleDeleteDiscordCustomAsset(assetId: string) {
+    const assets = await deleteDiscordCustomAsset(assetId);
+    syncDiscordCustomAssetsAfterDelete(assetId, assets);
+    notify("info", "Image removed", "The local image was removed from the Gallery.");
+  }
+
   useEffect(() => {
     let disposed = false;
     const unlistenPromise = listen<TrayQuickSwitchNotice>(TRAY_QUICK_SWITCH_EVENT, (event) => {
@@ -473,6 +548,10 @@ function App() {
     onSaveCurrentCustomSettingsAsPreset: saveCurrentCustomSettingsAsPreset,
     onOpenCustomPresets: () => setCustomRulesDialogOpen(true),
     onOpenRules: () => setRulesDialogOpen(true),
+    onImportDiscordCustomAssetFiles: (files) =>
+      void runAction("importDiscordCustomAsset", async () => handleImportDiscordCustomAssetFiles(files)),
+    onDeleteDiscordCustomAsset: (assetId) =>
+      void runAction("deleteDiscordCustomAsset", async () => handleDeleteDiscordCustomAsset(assetId)),
     setConfig,
     setActiveRuleIndex,
     setRuleGroupPage,
@@ -488,6 +567,21 @@ function App() {
   const rulesDialogContent = <RulesDialogContent {...rulesDialogContentProps} />;
 
   const settingsView = <SettingsPage {...settingsPageProps} />;
+
+  const resourcesView = (
+      <ResourcesPage
+        assetLibraryProps={{
+          assets: config.discordCustomAssets,
+          panelHeadClass: PANEL_HEAD_CLASS,
+          buttonClass: BUTTON_CLASS,
+          dangerButtonClass: DANGER_BUTTON_CLASS,
+          onImportFiles: (files) =>
+            void runAction("importDiscordCustomAsset", async () => handleImportDiscordCustomAssetFiles(files)),
+          onDeleteAsset: (assetId) =>
+            void runAction("deleteDiscordCustomAsset", async () => handleDeleteDiscordCustomAsset(assetId)),
+        }}
+    />
+  );
 
   const { runtimePageProps, aboutPageProps } = createRuntimeViewProps({
     runtimeReady,
@@ -542,7 +636,14 @@ function App() {
 
   const aboutView = <AboutPage {...aboutPageProps} />;
 
-  const activeSectionView = activeSection === "settings" ? settingsView : activeSection === "about" ? aboutView : runtimeView;
+  const activeSectionView =
+    activeSection === "settings"
+      ? settingsView
+      : activeSection === "resources"
+        ? resourcesView
+        : activeSection === "about"
+          ? aboutView
+          : runtimeView;
 
   const {
     rulesEditorDialogProps,

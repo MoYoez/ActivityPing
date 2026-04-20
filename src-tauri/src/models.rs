@@ -73,6 +73,18 @@ pub fn default_discord_smart_artwork_preference() -> DiscordSmartArtworkPreferen
     DiscordSmartArtworkPreference::default()
 }
 
+pub fn default_discord_custom_artwork_source() -> DiscordCustomArtworkSource {
+    DiscordCustomArtworkSource::default()
+}
+
+pub fn default_discord_custom_app_icon_source() -> DiscordCustomAppIconSource {
+    DiscordCustomAppIconSource::default()
+}
+
+pub fn default_discord_asset_text_mode() -> DiscordAssetTextMode {
+    DiscordAssetTextMode::default()
+}
+
 pub fn default_discord_use_app_artwork() -> bool {
     false
 }
@@ -86,6 +98,14 @@ pub fn default_discord_artwork_worker_upload_url() -> String {
 }
 
 pub fn default_discord_artwork_worker_token() -> String {
+    String::new()
+}
+
+pub fn default_discord_asset_text() -> String {
+    String::new()
+}
+
+pub fn default_discord_custom_asset_id() -> String {
     String::new()
 }
 
@@ -173,6 +193,55 @@ pub enum DiscordSmartArtworkPreference {
     App,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscordCustomArtworkSource {
+    #[default]
+    Auto,
+    None,
+    Music,
+    App,
+    Library,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscordCustomAppIconSource {
+    #[default]
+    Auto,
+    None,
+    App,
+    Source,
+    Library,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscordAssetTextMode {
+    #[default]
+    Auto,
+    Custom,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordCustomAsset {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub file_name: String,
+    #[serde(default)]
+    pub stored_path: String,
+    #[serde(default)]
+    pub content_type: String,
+    #[serde(default)]
+    pub byte_size: u64,
+    #[serde(default)]
+    pub created_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppMessageTitleRule {
@@ -237,6 +306,22 @@ pub struct DiscordCustomPreset {
     pub details_format: String,
     #[serde(default)]
     pub state_format: String,
+    #[serde(default = "default_discord_custom_artwork_source")]
+    pub custom_artwork_source: DiscordCustomArtworkSource,
+    #[serde(default = "default_discord_asset_text_mode")]
+    pub custom_artwork_text_mode: DiscordAssetTextMode,
+    #[serde(default = "default_discord_asset_text")]
+    pub custom_artwork_text: String,
+    #[serde(default = "default_discord_custom_asset_id")]
+    pub custom_artwork_asset_id: String,
+    #[serde(default = "default_discord_custom_app_icon_source")]
+    pub custom_app_icon_source: DiscordCustomAppIconSource,
+    #[serde(default = "default_discord_asset_text_mode")]
+    pub custom_app_icon_text_mode: DiscordAssetTextMode,
+    #[serde(default = "default_discord_asset_text")]
+    pub custom_app_icon_text: String,
+    #[serde(default = "default_discord_custom_asset_id")]
+    pub custom_app_icon_asset_id: String,
     #[serde(default)]
     pub buttons: Vec<DiscordRichPresenceButtonConfig>,
     #[serde(default)]
@@ -263,6 +348,14 @@ impl Default for DiscordCustomPreset {
             custom_app_name: default_discord_custom_app_name(),
             details_format: String::new(),
             state_format: String::new(),
+            custom_artwork_source: default_discord_custom_artwork_source(),
+            custom_artwork_text_mode: default_discord_asset_text_mode(),
+            custom_artwork_text: default_discord_asset_text(),
+            custom_artwork_asset_id: default_discord_custom_asset_id(),
+            custom_app_icon_source: default_discord_custom_app_icon_source(),
+            custom_app_icon_text_mode: default_discord_asset_text_mode(),
+            custom_app_icon_text: default_discord_asset_text(),
+            custom_app_icon_asset_id: default_discord_custom_asset_id(),
             buttons: Vec::new(),
             party_id: String::new(),
             party_size_current: None,
@@ -392,6 +485,24 @@ pub struct ClientConfig {
     pub discord_artwork_worker_upload_url: String,
     #[serde(default = "default_discord_artwork_worker_token")]
     pub discord_artwork_worker_token: String,
+    #[serde(default = "default_discord_custom_artwork_source")]
+    pub discord_custom_artwork_source: DiscordCustomArtworkSource,
+    #[serde(default = "default_discord_asset_text_mode")]
+    pub discord_custom_artwork_text_mode: DiscordAssetTextMode,
+    #[serde(default = "default_discord_asset_text")]
+    pub discord_custom_artwork_text: String,
+    #[serde(default = "default_discord_custom_asset_id")]
+    pub discord_custom_artwork_asset_id: String,
+    #[serde(default = "default_discord_custom_app_icon_source")]
+    pub discord_custom_app_icon_source: DiscordCustomAppIconSource,
+    #[serde(default = "default_discord_asset_text_mode")]
+    pub discord_custom_app_icon_text_mode: DiscordAssetTextMode,
+    #[serde(default = "default_discord_asset_text")]
+    pub discord_custom_app_icon_text: String,
+    #[serde(default = "default_discord_custom_asset_id")]
+    pub discord_custom_app_icon_asset_id: String,
+    #[serde(default)]
+    pub discord_custom_assets: Vec<DiscordCustomAsset>,
     #[serde(default = "default_discord_details_format")]
     pub discord_details_format: String,
     #[serde(default = "default_discord_state_format")]
@@ -477,6 +588,15 @@ impl Default for ClientConfig {
             discord_use_music_artwork: default_discord_use_music_artwork(),
             discord_artwork_worker_upload_url: default_discord_artwork_worker_upload_url(),
             discord_artwork_worker_token: default_discord_artwork_worker_token(),
+            discord_custom_artwork_source: default_discord_custom_artwork_source(),
+            discord_custom_artwork_text_mode: default_discord_asset_text_mode(),
+            discord_custom_artwork_text: default_discord_asset_text(),
+            discord_custom_artwork_asset_id: default_discord_custom_asset_id(),
+            discord_custom_app_icon_source: default_discord_custom_app_icon_source(),
+            discord_custom_app_icon_text_mode: default_discord_asset_text_mode(),
+            discord_custom_app_icon_text: default_discord_asset_text(),
+            discord_custom_app_icon_asset_id: default_discord_custom_asset_id(),
+            discord_custom_assets: Vec::new(),
             discord_details_format: default_discord_details_format(),
             discord_state_format: default_discord_state_format(),
             discord_custom_buttons: Vec::new(),

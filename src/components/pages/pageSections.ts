@@ -1,4 +1,4 @@
-export type ViewSection = "runtime" | "settings" | "about";
+export type ViewSection = "runtime" | "settings" | "resources" | "about";
 
 export const SECTION_COPY = {
   runtime: {
@@ -11,6 +11,11 @@ export const SECTION_COPY = {
     title: "RPC and local rules",
     description: "Configure Discord RPC first, then tune monitor behavior and local rule clauses in one place.",
   },
+  resources: {
+    kicker: "Gallery",
+    title: "Local artwork",
+    description: "Upload images once, browse them as a gallery, and reuse them in Custom mode's large and small Discord asset slots.",
+  },
   about: {
     kicker: "About",
     title: "ActivityPing",
@@ -18,4 +23,4 @@ export const SECTION_COPY = {
   },
 } satisfies Record<ViewSection, { kicker: string; title: string; description: string }>;
 
-export const SECTION_ORDER: ViewSection[] = ["runtime", "settings", "about"];
+export const SECTION_ORDER: ViewSection[] = ["runtime", "settings", "resources", "about"];

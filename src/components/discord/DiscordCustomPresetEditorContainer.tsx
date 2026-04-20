@@ -1,4 +1,5 @@
 import type {
+  DiscordCustomAsset,
   DiscordCustomPreset,
   DiscordRichPresenceButtonConfig,
 } from "../../types";
@@ -7,6 +8,7 @@ import { DiscordCustomPresetEditorModal } from "./DiscordCustomPresetEditorModal
 export function DiscordCustomPresetEditorContainer({
   preset,
   presetIndex,
+  assets,
   detailsForceCustomChoice,
   stateForceCustomChoice,
   presetAdvancedAddonsConfigured,
@@ -29,6 +31,7 @@ export function DiscordCustomPresetEditorContainer({
 }: {
   preset: DiscordCustomPreset;
   presetIndex: number;
+  assets: DiscordCustomAsset[];
   detailsForceCustomChoice: boolean;
   stateForceCustomChoice: boolean;
   presetAdvancedAddonsConfigured: boolean;
@@ -53,6 +56,7 @@ export function DiscordCustomPresetEditorContainer({
     <DiscordCustomPresetEditorModal
       preset={preset}
       presetIndex={presetIndex}
+      assets={assets}
       detailsForceCustomChoice={detailsForceCustomChoice}
       stateForceCustomChoice={stateForceCustomChoice}
       presetAdvancedAddonsConfigured={presetAdvancedAddonsConfigured}
@@ -84,6 +88,30 @@ export function DiscordCustomPresetEditorContainer({
       }
       onCustomAppNameChange={(value) =>
         patchPresetAt(presetIndex, (item) => ({ ...item, customAppName: value }))
+      }
+      onArtworkSourceChange={(value) =>
+        patchPresetAt(presetIndex, (item) => ({ ...item, customArtworkSource: value }))
+      }
+      onArtworkTextModeChange={(value) =>
+        patchPresetAt(presetIndex, (item) => ({ ...item, customArtworkTextMode: value }))
+      }
+      onArtworkTextChange={(value) =>
+        patchPresetAt(presetIndex, (item) => ({ ...item, customArtworkText: value }))
+      }
+      onArtworkAssetIdChange={(value) =>
+        patchPresetAt(presetIndex, (item) => ({ ...item, customArtworkAssetId: value }))
+      }
+      onAppIconSourceChange={(value) =>
+        patchPresetAt(presetIndex, (item) => ({ ...item, customAppIconSource: value }))
+      }
+      onAppIconTextModeChange={(value) =>
+        patchPresetAt(presetIndex, (item) => ({ ...item, customAppIconTextMode: value }))
+      }
+      onAppIconTextChange={(value) =>
+        patchPresetAt(presetIndex, (item) => ({ ...item, customAppIconText: value }))
+      }
+      onAppIconAssetIdChange={(value) =>
+        patchPresetAt(presetIndex, (item) => ({ ...item, customAppIconAssetId: value }))
       }
       setDetailsForceCustomChoice={setDetailsForceCustomChoice}
       setStateForceCustomChoice={setStateForceCustomChoice}

@@ -1,11 +1,16 @@
 import type {
   DiscordActivityType,
+  DiscordAssetTextMode,
   DiscordAppNameMode,
+  DiscordCustomAppIconSource,
+  DiscordCustomArtworkSource,
+  DiscordCustomAsset,
   DiscordCustomPreset,
   DiscordRichPresenceButtonConfig,
   DiscordStatusDisplay,
 } from "../../types";
 import { DiscordAddonsEditor } from "./DiscordAddonsEditor";
+import { DiscordCustomArtworkEditor } from "./DiscordCustomArtworkEditor";
 import { DiscordLineTemplateEditor } from "./DiscordLineTemplateEditor";
 import { DiscordOptionHelp } from "./DiscordOptionHelp";
 import {
@@ -17,6 +22,7 @@ import {
 export function DiscordCustomPresetEditorModal({
   preset,
   presetIndex,
+  assets,
   detailsForceCustomChoice,
   stateForceCustomChoice,
   presetAdvancedAddonsConfigured,
@@ -35,6 +41,14 @@ export function DiscordCustomPresetEditorModal({
   onStatusDisplayChange,
   onAppNameModeChange,
   onCustomAppNameChange,
+  onArtworkSourceChange,
+  onArtworkTextModeChange,
+  onArtworkTextChange,
+  onArtworkAssetIdChange,
+  onAppIconSourceChange,
+  onAppIconTextModeChange,
+  onAppIconTextChange,
+  onAppIconAssetIdChange,
   setDetailsForceCustomChoice,
   setStateForceCustomChoice,
   onDetailsFormatChange,
@@ -51,6 +65,7 @@ export function DiscordCustomPresetEditorModal({
 }: {
   preset: DiscordCustomPreset;
   presetIndex: number;
+  assets: DiscordCustomAsset[];
   detailsForceCustomChoice: boolean;
   stateForceCustomChoice: boolean;
   presetAdvancedAddonsConfigured: boolean;
@@ -69,6 +84,14 @@ export function DiscordCustomPresetEditorModal({
   onStatusDisplayChange: (value: DiscordStatusDisplay) => void;
   onAppNameModeChange: (value: DiscordAppNameMode) => void;
   onCustomAppNameChange: (value: string) => void;
+  onArtworkSourceChange: (value: DiscordCustomArtworkSource) => void;
+  onArtworkTextModeChange: (value: DiscordAssetTextMode) => void;
+  onArtworkTextChange: (value: string) => void;
+  onArtworkAssetIdChange: (value: string) => void;
+  onAppIconSourceChange: (value: DiscordCustomAppIconSource) => void;
+  onAppIconTextModeChange: (value: DiscordAssetTextMode) => void;
+  onAppIconTextChange: (value: string) => void;
+  onAppIconAssetIdChange: (value: string) => void;
   setDetailsForceCustomChoice: (value: boolean) => void;
   setStateForceCustomChoice: (value: boolean) => void;
   onDetailsFormatChange: (value: string) => void;
@@ -203,6 +226,35 @@ export function DiscordCustomPresetEditorModal({
               onValueChange={onStateFormatChange}
             />
           </div>
+
+          <DiscordCustomArtworkEditor
+            title="Preset artwork"
+            description="Choose which assets this preset should push into the large and small Discord image slots."
+            assets={assets}
+            artworkSource={preset.customArtworkSource}
+            artworkTextMode={preset.customArtworkTextMode}
+            artworkText={preset.customArtworkText}
+            artworkAssetId={preset.customArtworkAssetId}
+            appIconSource={preset.customAppIconSource}
+            appIconTextMode={preset.customAppIconTextMode}
+            appIconText={preset.customAppIconText}
+            appIconAssetId={preset.customAppIconAssetId}
+            panelHeadClass={panelHeadClass}
+            fieldClass={fieldClass}
+            fieldSpanClass={fieldSpanClass}
+            inputClass={inputClass}
+            selectClass={selectClass}
+            buttonClass={buttonClass}
+            primaryButtonClass={primaryButtonClass}
+            onArtworkSourceChange={onArtworkSourceChange}
+            onArtworkTextModeChange={onArtworkTextModeChange}
+            onArtworkTextChange={onArtworkTextChange}
+            onArtworkAssetIdChange={onArtworkAssetIdChange}
+            onAppIconSourceChange={onAppIconSourceChange}
+            onAppIconTextModeChange={onAppIconTextModeChange}
+            onAppIconTextChange={onAppIconTextChange}
+            onAppIconAssetIdChange={onAppIconAssetIdChange}
+          />
 
           <DiscordAddonsEditor
             title="Preset add-ons"

@@ -1,7 +1,10 @@
 import type {
   ClientConfig,
   DiscordActivityType,
+  DiscordAssetTextMode,
   DiscordAppNameMode,
+  DiscordCustomAppIconSource,
+  DiscordCustomArtworkSource,
   DiscordReportMode,
   DiscordSmartArtworkPreference,
   DiscordStatusDisplay,
@@ -55,6 +58,14 @@ export function DiscordBridgeView({
   onDiscordStateForceCustomChoiceChange,
   onDiscordDetailsFormatChange,
   onDiscordStateFormatChange,
+  onDiscordCustomArtworkSourceChange,
+  onDiscordCustomArtworkTextModeChange,
+  onDiscordCustomArtworkTextChange,
+  onDiscordCustomArtworkAssetIdChange,
+  onDiscordCustomAppIconSourceChange,
+  onDiscordCustomAppIconTextModeChange,
+  onDiscordCustomAppIconTextChange,
+  onDiscordCustomAppIconAssetIdChange,
   onPatchDiscordButtonAt,
   onRemoveDiscordButtonAt,
   onAddDiscordButton,
@@ -119,6 +130,14 @@ export function DiscordBridgeView({
   onDiscordStateForceCustomChoiceChange: (value: boolean) => void;
   onDiscordDetailsFormatChange: (value: string) => void;
   onDiscordStateFormatChange: (value: string) => void;
+  onDiscordCustomArtworkSourceChange: (value: DiscordCustomArtworkSource) => void;
+  onDiscordCustomArtworkTextModeChange: (value: DiscordAssetTextMode) => void;
+  onDiscordCustomArtworkTextChange: (value: string) => void;
+  onDiscordCustomArtworkAssetIdChange: (value: string) => void;
+  onDiscordCustomAppIconSourceChange: (value: DiscordCustomAppIconSource) => void;
+  onDiscordCustomAppIconTextModeChange: (value: DiscordAssetTextMode) => void;
+  onDiscordCustomAppIconTextChange: (value: string) => void;
+  onDiscordCustomAppIconAssetIdChange: (value: string) => void;
   onPatchDiscordButtonAt: (index: number, updater: (button: { label: string; url: string }) => { label: string; url: string }) => void;
   onRemoveDiscordButtonAt: (index: number) => void;
   onAddDiscordButton: () => void;
@@ -204,6 +223,15 @@ export function DiscordBridgeView({
             stateFormat={config.discordStateFormat}
             detailsForceCustomChoice={discordDetailsForceCustomChoice}
             stateForceCustomChoice={discordStateForceCustomChoice}
+            assets={config.discordCustomAssets}
+            artworkSource={config.discordCustomArtworkSource}
+            artworkTextMode={config.discordCustomArtworkTextMode}
+            artworkText={config.discordCustomArtworkText}
+            artworkAssetId={config.discordCustomArtworkAssetId}
+            appIconSource={config.discordCustomAppIconSource}
+            appIconTextMode={config.discordCustomAppIconTextMode}
+            appIconText={config.discordCustomAppIconText}
+            appIconAssetId={config.discordCustomAppIconAssetId}
             buttons={config.discordCustomButtons}
             customAdvancedAddonsConfigured={customAdvancedAddonsConfigured}
             presetCount={config.discordCustomPresets.length}
@@ -229,6 +257,14 @@ export function DiscordBridgeView({
             setStateForceCustomChoice={onDiscordStateForceCustomChoiceChange}
             onDetailsFormatChange={onDiscordDetailsFormatChange}
             onStateFormatChange={onDiscordStateFormatChange}
+            onArtworkSourceChange={onDiscordCustomArtworkSourceChange}
+            onArtworkTextModeChange={onDiscordCustomArtworkTextModeChange}
+            onArtworkTextChange={onDiscordCustomArtworkTextChange}
+            onArtworkAssetIdChange={onDiscordCustomArtworkAssetIdChange}
+            onAppIconSourceChange={onDiscordCustomAppIconSourceChange}
+            onAppIconTextModeChange={onDiscordCustomAppIconTextModeChange}
+            onAppIconTextChange={onDiscordCustomAppIconTextChange}
+            onAppIconAssetIdChange={onDiscordCustomAppIconAssetIdChange}
             onPatchButtonAt={onPatchDiscordButtonAt}
             onRemoveButtonAt={onRemoveDiscordButtonAt}
             onAddButton={onAddDiscordButton}
@@ -305,7 +341,7 @@ export function DiscordBridgeView({
           <label className={toggleTileClass}>
             <div>
               <strong>Use app artwork</strong>
-              <span>Upload the current foreground app icon for Rich Presence. When no music artwork is active, the app icon becomes the main image.</span>
+              <span>Upload the current foreground app icon for Rich Presence. Custom mode can override this above with its own asset selectors.</span>
             </div>
             <input
               className="toggle toggle-primary"
@@ -317,7 +353,7 @@ export function DiscordBridgeView({
           <label className={toggleTileClass}>
             <div>
               <strong>Use music artwork</strong>
-              <span>Upload media cover art when available and keep the playback source icon attached while music is active.</span>
+              <span>Upload media cover art when available and keep the playback source icon attached while music is active. Custom mode can override this above with its own asset selectors.</span>
             </div>
             <input
               className="toggle toggle-primary"

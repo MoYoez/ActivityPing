@@ -28,7 +28,10 @@ use timestamps::{build_media_timestamps, should_skip_timestamp_update};
 #[cfg(test)]
 use crate::rules::{ResolvedActivity, ResolvedDiscordAddons};
 use crate::{
-    artwork_server::{prepare_artwork_publisher, ArtworkPublisher, PublishAssetKind},
+    artwork_server::{
+        artwork_publishing_enabled, prepare_artwork_publisher, ArtworkPublisher,
+        PublishAssetKind,
+    },
     backend_locale::BackendLocale,
     models::{
         ClientConfig, DiscordActivityType, DiscordDebugParty, DiscordDebugPayload,
@@ -70,6 +73,7 @@ pub struct DiscordPresenceRuntime {
 }
 
 use payload::{DiscordPresencePayload, DiscordPresenceStatusDisplayType};
+use payload::DiscordPresenceAssetKind;
 
 impl DiscordPresenceRuntime {
     pub fn new() -> Self {
@@ -348,7 +352,12 @@ fn capture_local_presence(config: &ClientConfig) -> Result<Option<DiscordPresenc
         media_is_playing: media.is_playing,
         summary: text.summary,
         signature: text.signature,
-        artwork: build_presence_artwork(config, &media),
+        artwork: build_presence_artwork(
+            config,
+            snapshot.process_name.as_str(),
+            foreground_app_icon.as_ref(),
+            &media,
+        ),
         icon: build_presence_icon(
             config,
             snapshot.process_name.as_str(),
@@ -389,47 +398,56 @@ fn apply_discord_presence(
         let mut app_icon_url = None;
         let mut app_icon_text = None;
         let mut app_icon_error = None;
-        if config.discord_use_app_artwork || config.discord_use_music_artwork {
-            if let (Some(artwork), Some(artwork_publisher)) =
-                (payload.artwork.as_ref(), artwork_publisher)
-            {
-                match artwork_publisher.publish(
-                    artwork.bytes.clone(),
-                    artwork.cache_key.clone(),
-                    PublishAssetKind::MusicArtwork,
-                ) {
-                    Ok(image_url) => {
-                        artwork_url = Some(image_url.clone());
-                        artwork_hover_text = Some(artwork.hover_text.clone());
-                        artwork_content_type =
-                            Some(PublishAssetKind::MusicArtwork.content_type().to_string());
-                        activity_payload = activity_payload.assets(
-                            activity::Assets::new()
-                                .large_image(image_url)
-                                .large_text(artwork.hover_text.clone()),
-                        );
-                    }
-                    Err(error) => {
-                        artwork_upload_error = Some(error);
-                    }
+        if let (Some(artwork), Some(artwork_publisher)) =
+            (payload.artwork.as_ref(), artwork_publisher)
+        {
+            let publish_kind = match artwork.asset_kind {
+                DiscordPresenceAssetKind::AppIcon => PublishAssetKind::AppIcon,
+                DiscordPresenceAssetKind::MusicArtwork => PublishAssetKind::MusicArtwork,
+            };
+            match artwork_publisher.publish(
+                artwork.bytes.clone(),
+                artwork.cache_key.clone(),
+                publish_kind,
+            ) {
+                Ok(image_url) => {
+                    artwork_url = Some(image_url);
+                    artwork_hover_text = if artwork.hover_text.trim().is_empty() {
+                        None
+                    } else {
+                        Some(artwork.hover_text.clone())
+                    };
+                    artwork_content_type =
+                        Some(publish_kind.content_type().to_string());
+                }
+                Err(error) => {
+                    artwork_upload_error = Some(error);
                 }
             }
+        }
 
-            if let (Some(icon), Some(artwork_publisher)) =
-                (payload.icon.as_ref(), artwork_publisher)
-            {
-                match artwork_publisher.publish(
-                    icon.bytes.clone(),
-                    icon.cache_key.clone(),
-                    PublishAssetKind::AppIcon,
-                ) {
-                    Ok(image_url) => {
-                        app_icon_url = Some(image_url);
-                        app_icon_text = Some(icon.hover_text.clone());
-                    }
-                    Err(error) => {
-                        app_icon_error = Some(error);
-                    }
+        if let (Some(icon), Some(artwork_publisher)) =
+            (payload.icon.as_ref(), artwork_publisher)
+        {
+            let publish_kind = match icon.asset_kind {
+                DiscordPresenceAssetKind::AppIcon => PublishAssetKind::AppIcon,
+                DiscordPresenceAssetKind::MusicArtwork => PublishAssetKind::MusicArtwork,
+            };
+            match artwork_publisher.publish(
+                icon.bytes.clone(),
+                icon.cache_key.clone(),
+                publish_kind,
+            ) {
+                Ok(image_url) => {
+                    app_icon_url = Some(image_url);
+                    app_icon_text = if icon.hover_text.trim().is_empty() {
+                        None
+                    } else {
+                        Some(icon.hover_text.clone())
+                    };
+                }
+                Err(error) => {
+                    app_icon_error = Some(error);
                 }
             }
         }
@@ -679,10 +697,13 @@ fn validate_discord_presence_config(
     if config.discord_application_id.trim().is_empty() {
         return Err(discord_config_app_id_missing(locale));
     }
-    if (config.discord_use_app_artwork || config.discord_use_music_artwork)
+    if artwork_publishing_enabled(config)
         && config.discord_artwork_worker_upload_url.trim().is_empty()
     {
-        return Err("Discord artwork uploader service URL is required.".into());
+        return Err(
+            "Discord artwork uploader service URL is required when app artwork, music artwork, or Custom Gallery images are enabled."
+                .into(),
+        );
     }
     Ok(())
 }

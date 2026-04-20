@@ -5,6 +5,19 @@ export type DiscordActivityType = "playing" | "listening" | "watching" | "compet
 export type DiscordStatusDisplay = "name" | "state" | "details";
 export type DiscordAppNameMode = "default" | "song" | "artist" | "album" | "source" | "custom";
 export type DiscordSmartArtworkPreference = "music" | "app";
+export type DiscordCustomArtworkSource = "auto" | "none" | "music" | "app" | "library";
+export type DiscordCustomAppIconSource = "auto" | "none" | "app" | "source" | "library";
+export type DiscordAssetTextMode = "auto" | "custom";
+
+export interface DiscordCustomAsset {
+  id: string;
+  name: string;
+  fileName: string;
+  storedPath: string;
+  contentType: string;
+  byteSize: number;
+  createdAt: string;
+}
 
 export interface ClientCapabilities {
   realtimeReporter: boolean;
@@ -42,6 +55,14 @@ export interface DiscordCustomPreset {
   customAppName: string;
   detailsFormat: string;
   stateFormat: string;
+  customArtworkSource: DiscordCustomArtworkSource;
+  customArtworkTextMode: DiscordAssetTextMode;
+  customArtworkText: string;
+  customArtworkAssetId: string;
+  customAppIconSource: DiscordCustomAppIconSource;
+  customAppIconTextMode: DiscordAssetTextMode;
+  customAppIconText: string;
+  customAppIconAssetId: string;
   buttons: DiscordRichPresenceButtonConfig[];
   partyId: string;
   partySizeCurrent?: number | null;
@@ -87,6 +108,15 @@ export interface ClientConfig {
   discordUseMusicArtwork: boolean;
   discordArtworkWorkerUploadUrl: string;
   discordArtworkWorkerToken: string;
+  discordCustomArtworkSource: DiscordCustomArtworkSource;
+  discordCustomArtworkTextMode: DiscordAssetTextMode;
+  discordCustomArtworkText: string;
+  discordCustomArtworkAssetId: string;
+  discordCustomAppIconSource: DiscordCustomAppIconSource;
+  discordCustomAppIconTextMode: DiscordAssetTextMode;
+  discordCustomAppIconText: string;
+  discordCustomAppIconAssetId: string;
+  discordCustomAssets: DiscordCustomAsset[];
   discordDetailsFormat: string;
   discordStateFormat: string;
   discordCustomButtons: DiscordRichPresenceButtonConfig[];

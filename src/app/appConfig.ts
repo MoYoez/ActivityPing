@@ -8,6 +8,7 @@ import type {
   AppMessageRuleGroup,
   AppStatePayload,
   ClientConfig,
+  DiscordCustomAsset,
   DiscordCustomPreset,
   DiscordRichPresenceButtonConfig,
 } from "../types";
@@ -61,6 +62,14 @@ export function createDiscordCustomPreset(): DiscordCustomPreset {
     customAppName: "",
     detailsFormat: "{activity}",
     stateFormat: "{context}",
+    customArtworkSource: "auto",
+    customArtworkTextMode: "auto",
+    customArtworkText: "",
+    customArtworkAssetId: "",
+    customAppIconSource: "auto",
+    customAppIconTextMode: "auto",
+    customAppIconText: "",
+    customAppIconAssetId: "",
     buttons: [],
     partyId: "",
     partySizeCurrent: null,
@@ -80,6 +89,14 @@ export function createDiscordCustomPresetFromConfig(config: ClientConfig): Disco
     customAppName: config.discordCustomModeCustomAppName,
     detailsFormat: normalizeDiscordLineTemplate(config.discordDetailsFormat),
     stateFormat: normalizeDiscordLineTemplate(config.discordStateFormat),
+    customArtworkSource: config.discordCustomArtworkSource,
+    customArtworkTextMode: config.discordCustomArtworkTextMode,
+    customArtworkText: config.discordCustomArtworkText,
+    customArtworkAssetId: config.discordCustomArtworkAssetId,
+    customAppIconSource: config.discordCustomAppIconSource,
+    customAppIconTextMode: config.discordCustomAppIconTextMode,
+    customAppIconText: config.discordCustomAppIconText,
+    customAppIconAssetId: config.discordCustomAppIconAssetId,
     buttons: config.discordCustomButtons.map((button) => ({ ...button })),
     partyId: config.discordCustomPartyId,
     partySizeCurrent: config.discordCustomPartySizeCurrent ?? null,
@@ -92,6 +109,16 @@ export function createDiscordCustomPresetFromConfig(config: ClientConfig): Disco
 
 export function summarizeDiscordCustomPreset(preset: DiscordCustomPreset) {
   const extras = [];
+  if (
+    preset.customArtworkSource !== "auto" ||
+    preset.customArtworkTextMode !== "auto" ||
+    preset.customAppIconSource !== "auto" ||
+    preset.customAppIconTextMode !== "auto" ||
+    preset.customArtworkAssetId.trim() ||
+    preset.customAppIconAssetId.trim()
+  ) {
+    extras.push("artwork");
+  }
   if (preset.buttons.length > 0) extras.push(`${preset.buttons.length} button${preset.buttons.length === 1 ? "" : "s"}`);
   if (preset.partyId.trim() || preset.partySizeCurrent || preset.partySizeMax) extras.push("party");
   if (preset.joinSecret.trim() || preset.spectateSecret.trim() || preset.matchSecret.trim()) extras.push("secrets");
@@ -122,13 +149,77 @@ export function validateRuleRegex(config: ClientConfig) {
 }
 
 export function validateArtworkPublishing(config: ClientConfig) {
-  if (
-    (config.discordUseAppArtwork || config.discordUseMusicArtwork) &&
-    !config.discordArtworkWorkerUploadUrl.trim()
-  ) {
-    return "Use app artwork or Use music artwork requires an uploader service URL in Artwork publishing.";
+  if (usesArtworkPublishing(config) && !config.discordArtworkWorkerUploadUrl.trim()) {
+    return "Artwork publishing requires an uploader service URL when app artwork, music artwork, or Custom Gallery image slots are enabled.";
   }
   return null;
+}
+
+export function usesArtworkPublishing(config: ClientConfig) {
+  return (
+    config.discordUseAppArtwork ||
+    config.discordUseMusicArtwork ||
+    config.discordCustomArtworkSource === "music" ||
+    config.discordCustomArtworkSource === "app" ||
+    (config.discordCustomArtworkSource === "library" && config.discordCustomArtworkAssetId.trim().length > 0) ||
+    config.discordCustomAppIconSource === "app" ||
+    config.discordCustomAppIconSource === "source" ||
+    (config.discordCustomAppIconSource === "library" && config.discordCustomAppIconAssetId.trim().length > 0)
+  );
+}
+
+export function replaceDiscordCustomAssets(
+  config: ClientConfig,
+  assets: DiscordCustomAsset[],
+): ClientConfig {
+  return {
+    ...config,
+    discordCustomAssets: assets.map((asset) => ({ ...asset })),
+  };
+}
+
+export function clearDiscordCustomAssetReferences(
+  config: ClientConfig,
+  assetId: string,
+): ClientConfig {
+  const trimmedId = assetId.trim();
+  if (!trimmedId) {
+    return config;
+  }
+
+  const clearPreset = (preset: DiscordCustomPreset): DiscordCustomPreset => ({
+    ...preset,
+    customArtworkSource:
+      preset.customArtworkSource === "library" && preset.customArtworkAssetId.trim() === trimmedId
+        ? "none"
+        : preset.customArtworkSource,
+    customArtworkAssetId:
+      preset.customArtworkAssetId.trim() === trimmedId ? "" : preset.customArtworkAssetId,
+    customAppIconSource:
+      preset.customAppIconSource === "library" && preset.customAppIconAssetId.trim() === trimmedId
+        ? "none"
+        : preset.customAppIconSource,
+    customAppIconAssetId:
+      preset.customAppIconAssetId.trim() === trimmedId ? "" : preset.customAppIconAssetId,
+  });
+
+  return {
+    ...config,
+    discordCustomArtworkSource:
+      config.discordCustomArtworkSource === "library" && config.discordCustomArtworkAssetId.trim() === trimmedId
+        ? "none"
+        : config.discordCustomArtworkSource,
+    discordCustomArtworkAssetId:
+      config.discordCustomArtworkAssetId.trim() === trimmedId ? "" : config.discordCustomArtworkAssetId,
+    discordCustomAppIconSource:
+      config.discordCustomAppIconSource === "library" && config.discordCustomAppIconAssetId.trim() === trimmedId
+        ? "none"
+        : config.discordCustomAppIconSource,
+    discordCustomAppIconAssetId:
+      config.discordCustomAppIconAssetId.trim() === trimmedId ? "" : config.discordCustomAppIconAssetId,
+    discordCustomPresets: config.discordCustomPresets.map(clearPreset),
+    discordCustomAssets: config.discordCustomAssets.filter((asset) => asset.id !== trimmedId),
+  };
 }
 
 export function buildPayload(baseState: AppStatePayload, config: ClientConfig): AppStatePayload {

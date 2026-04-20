@@ -1,6 +1,7 @@
 mod artwork_server;
 mod backend_locale;
 mod commands;
+mod custom_assets;
 mod discord_presence;
 mod models;
 mod platform;
@@ -90,6 +91,9 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         commands::load_app_state,
         commands::save_app_state,
+        commands::import_discord_custom_asset,
+        commands::delete_discord_custom_asset,
+        commands::get_discord_custom_asset_preview,
         commands::get_client_capabilities,
         commands::hide_to_tray,
         commands::set_launch_on_startup,
@@ -107,6 +111,9 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         commands::load_app_state,
         commands::save_app_state,
+        commands::import_discord_custom_asset,
+        commands::delete_discord_custom_asset,
+        commands::get_discord_custom_asset_preview,
         commands::get_client_capabilities,
         commands::run_platform_self_test,
         commands::request_accessibility_permission

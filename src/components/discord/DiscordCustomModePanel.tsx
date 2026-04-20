@@ -1,6 +1,14 @@
-import type { DiscordActivityType, DiscordRichPresenceButtonConfig } from "../../types";
+import type {
+  DiscordActivityType,
+  DiscordAssetTextMode,
+  DiscordCustomAppIconSource,
+  DiscordCustomArtworkSource,
+  DiscordCustomAsset,
+  DiscordRichPresenceButtonConfig,
+} from "../../types";
 import { DiscordOptionHelp } from "./DiscordOptionHelp";
 import { DiscordAddonsEditor } from "./DiscordAddonsEditor";
+import { DiscordCustomArtworkEditor } from "./DiscordCustomArtworkEditor";
 import { DiscordLineTemplateEditor } from "./DiscordLineTemplateEditor";
 import { DISCORD_ACTIVITY_TYPE_OPTIONS } from "./discordOptions";
 
@@ -10,6 +18,15 @@ export function DiscordCustomModePanel({
   stateFormat,
   detailsForceCustomChoice,
   stateForceCustomChoice,
+  assets,
+  artworkSource,
+  artworkTextMode,
+  artworkText,
+  artworkAssetId,
+  appIconSource,
+  appIconTextMode,
+  appIconText,
+  appIconAssetId,
   buttons,
   customAdvancedAddonsConfigured,
   presetCount,
@@ -35,6 +52,14 @@ export function DiscordCustomModePanel({
   setStateForceCustomChoice,
   onDetailsFormatChange,
   onStateFormatChange,
+  onArtworkSourceChange,
+  onArtworkTextModeChange,
+  onArtworkTextChange,
+  onArtworkAssetIdChange,
+  onAppIconSourceChange,
+  onAppIconTextModeChange,
+  onAppIconTextChange,
+  onAppIconAssetIdChange,
   onPatchButtonAt,
   onRemoveButtonAt,
   onAddButton,
@@ -52,6 +77,15 @@ export function DiscordCustomModePanel({
   stateFormat: string;
   detailsForceCustomChoice: boolean;
   stateForceCustomChoice: boolean;
+  assets: DiscordCustomAsset[];
+  artworkSource: DiscordCustomArtworkSource;
+  artworkTextMode: DiscordAssetTextMode;
+  artworkText: string;
+  artworkAssetId: string;
+  appIconSource: DiscordCustomAppIconSource;
+  appIconTextMode: DiscordAssetTextMode;
+  appIconText: string;
+  appIconAssetId: string;
   buttons: DiscordRichPresenceButtonConfig[];
   customAdvancedAddonsConfigured: boolean;
   presetCount: number;
@@ -77,6 +111,14 @@ export function DiscordCustomModePanel({
   setStateForceCustomChoice: (value: boolean) => void;
   onDetailsFormatChange: (value: string) => void;
   onStateFormatChange: (value: string) => void;
+  onArtworkSourceChange: (value: DiscordCustomArtworkSource) => void;
+  onArtworkTextModeChange: (value: DiscordAssetTextMode) => void;
+  onArtworkTextChange: (value: string) => void;
+  onArtworkAssetIdChange: (value: string) => void;
+  onAppIconSourceChange: (value: DiscordCustomAppIconSource) => void;
+  onAppIconTextModeChange: (value: DiscordAssetTextMode) => void;
+  onAppIconTextChange: (value: string) => void;
+  onAppIconAssetIdChange: (value: string) => void;
   onPatchButtonAt: (
     index: number,
     updater: (button: DiscordRichPresenceButtonConfig) => DiscordRichPresenceButtonConfig,
@@ -149,6 +191,33 @@ export function DiscordCustomModePanel({
           onValueChange={onStateFormatChange}
         />
       </div>
+
+      <DiscordCustomArtworkEditor
+        assets={assets}
+        artworkSource={artworkSource}
+        artworkTextMode={artworkTextMode}
+        artworkText={artworkText}
+        artworkAssetId={artworkAssetId}
+        appIconSource={appIconSource}
+        appIconTextMode={appIconTextMode}
+        appIconText={appIconText}
+        appIconAssetId={appIconAssetId}
+        panelHeadClass={panelHeadClass}
+        fieldClass={fieldClass}
+        fieldSpanClass={fieldSpanClass}
+        inputClass={inputClass}
+        selectClass={selectClass}
+        buttonClass={buttonClass}
+        primaryButtonClass={primaryButtonClass}
+        onArtworkSourceChange={onArtworkSourceChange}
+        onArtworkTextModeChange={onArtworkTextModeChange}
+        onArtworkTextChange={onArtworkTextChange}
+        onArtworkAssetIdChange={onArtworkAssetIdChange}
+        onAppIconSourceChange={onAppIconSourceChange}
+        onAppIconTextModeChange={onAppIconTextModeChange}
+        onAppIconTextChange={onAppIconTextChange}
+        onAppIconAssetIdChange={onAppIconAssetIdChange}
+      />
 
       <DiscordAddonsEditor
         title="Custom add-ons"

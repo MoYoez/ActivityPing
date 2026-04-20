@@ -149,6 +149,14 @@ function normalizeImportedDiscordCustomPreset(raw: unknown): DiscordCustomPreset
     customAppName?: unknown;
     detailsFormat?: unknown;
     stateFormat?: unknown;
+    customArtworkSource?: unknown;
+    customArtworkTextMode?: unknown;
+    customArtworkText?: unknown;
+    customArtworkAssetId?: unknown;
+    customAppIconSource?: unknown;
+    customAppIconTextMode?: unknown;
+    customAppIconText?: unknown;
+    customAppIconAssetId?: unknown;
     buttons?: unknown;
     partyId?: unknown;
     partySizeCurrent?: unknown;
@@ -166,6 +174,14 @@ function normalizeImportedDiscordCustomPreset(raw: unknown): DiscordCustomPreset
     customAppName: String(rule.customAppName ?? ""),
     detailsFormat: String(rule.detailsFormat ?? ""),
     stateFormat: String(rule.stateFormat ?? ""),
+    customArtworkSource: rule.customArtworkSource as DiscordCustomPreset["customArtworkSource"],
+    customArtworkTextMode: rule.customArtworkTextMode as DiscordCustomPreset["customArtworkTextMode"],
+    customArtworkText: String(rule.customArtworkText ?? ""),
+    customArtworkAssetId: String(rule.customArtworkAssetId ?? ""),
+    customAppIconSource: rule.customAppIconSource as DiscordCustomPreset["customAppIconSource"],
+    customAppIconTextMode: rule.customAppIconTextMode as DiscordCustomPreset["customAppIconTextMode"],
+    customAppIconText: String(rule.customAppIconText ?? ""),
+    customAppIconAssetId: String(rule.customAppIconAssetId ?? ""),
     buttons: Array.isArray(rule.buttons) ? (rule.buttons as DiscordRichPresenceButtonConfig[]) : [],
     partyId: String(rule.partyId ?? ""),
     partySizeCurrent: rule.partySizeCurrent as number | null | undefined,

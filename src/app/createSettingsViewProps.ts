@@ -119,6 +119,8 @@ export interface CreateSettingsViewPropsArgs {
   onSaveCurrentCustomSettingsAsPreset: () => void;
   onOpenCustomPresets: () => void;
   onOpenRules: () => void;
+  onImportDiscordCustomAssetFiles: (files: File[]) => void;
+  onDeleteDiscordCustomAsset: (assetId: string) => void;
   setConfig: Dispatch<SetStateAction<ClientConfig>>;
   setActiveRuleIndex: Dispatch<SetStateAction<number>>;
   setRuleGroupPage: Dispatch<SetStateAction<number>>;

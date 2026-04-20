@@ -4,6 +4,7 @@ import type {
   AppStatePayload,
   ClientCapabilities,
   ClientConfig,
+  DiscordCustomAsset,
   DiscordPresenceSnapshot,
   PlatformSelfTestResult,
   RealtimeReporterSnapshot,
@@ -117,6 +118,15 @@ export function defaultClientConfig(): ClientConfig {
     discordUseMusicArtwork: false,
     discordArtworkWorkerUploadUrl: "",
     discordArtworkWorkerToken: "",
+    discordCustomArtworkSource: "auto",
+    discordCustomArtworkTextMode: "auto",
+    discordCustomArtworkText: "",
+    discordCustomArtworkAssetId: "",
+    discordCustomAppIconSource: "auto",
+    discordCustomAppIconTextMode: "auto",
+    discordCustomAppIconText: "",
+    discordCustomAppIconAssetId: "",
+    discordCustomAssets: [],
     discordDetailsFormat: "{activity}",
     discordStateFormat: "{context}",
     discordCustomButtons: [],
@@ -213,4 +223,33 @@ export async function setAutostartEnabled(enabled: boolean) {
   if (!result.success) {
     throw new Error(resolveApiError(result, "Launch with system could not be updated."));
   }
+}
+
+export async function importDiscordCustomAsset(args: {
+  name: string;
+  fileName: string;
+  contentType: string;
+  base64Data: string;
+}) {
+  const result = await invokeApi<DiscordCustomAsset[]>("import_discord_custom_asset", args);
+  if (!result.success || !result.data) {
+    throw new Error(resolveApiError(result, "The gallery image could not be imported."));
+  }
+  return result.data;
+}
+
+export async function deleteDiscordCustomAsset(assetId: string) {
+  const result = await invokeApi<DiscordCustomAsset[]>("delete_discord_custom_asset", { assetId });
+  if (!result.success || !result.data) {
+    throw new Error(resolveApiError(result, "The gallery image could not be removed."));
+  }
+  return result.data;
+}
+
+export async function getDiscordCustomAssetPreview(assetId: string) {
+  const result = await invokeApi<string>("get_discord_custom_asset_preview", { assetId });
+  if (!result.success || !result.data) {
+    throw new Error(resolveApiError(result, "The gallery image preview could not be loaded."));
+  }
+  return result.data;
 }

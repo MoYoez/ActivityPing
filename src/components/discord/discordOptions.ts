@@ -1,7 +1,10 @@
 import type {
   ClientConfig,
   DiscordActivityType,
+  DiscordAssetTextMode,
   DiscordAppNameMode,
+  DiscordCustomAppIconSource,
+  DiscordCustomArtworkSource,
   DiscordReportMode,
   DiscordSmartArtworkPreference,
   DiscordStatusDisplay,
@@ -113,6 +116,87 @@ export const DISCORD_SMART_ARTWORK_PREFERENCE_OPTIONS: Array<{
     value: "app",
     label: "App prefer",
     helper: "Use the current foreground app icon as Smart mode's main artwork, while keeping music on the last line.",
+  },
+];
+
+export const DISCORD_CUSTOM_ARTWORK_SOURCE_OPTIONS: Array<{
+  value: DiscordCustomArtworkSource;
+  label: string;
+  helper: string;
+}> = [
+  {
+    value: "none",
+    label: "Disabled",
+    helper: "Turn off the large image slot for Custom mode.",
+  },
+  {
+    value: "auto",
+    label: "Auto",
+    helper: "Follow the old Custom behavior and mirror the global artwork switches when they are enabled.",
+  },
+  {
+    value: "music",
+    label: "Music artwork",
+    helper: "Use the current song or media cover art as the large Discord image.",
+  },
+  {
+    value: "app",
+    label: "Foreground app",
+    helper: "Use the current foreground app icon as the large Discord image.",
+  },
+  {
+    value: "library",
+    label: "Gallery image",
+    helper: "Use a locally managed image from the Gallery page.",
+  },
+];
+
+export const DISCORD_CUSTOM_APP_ICON_SOURCE_OPTIONS: Array<{
+  value: DiscordCustomAppIconSource;
+  label: string;
+  helper: string;
+}> = [
+  {
+    value: "none",
+    label: "Disabled",
+    helper: "Turn off the small image slot for Custom mode.",
+  },
+  {
+    value: "auto",
+    label: "Auto",
+    helper: "Follow the old Custom behavior and keep the app icon slot tied to the global app artwork switch.",
+  },
+  {
+    value: "app",
+    label: "Foreground app",
+    helper: "Use the current foreground app icon as the small Discord image.",
+  },
+  {
+    value: "source",
+    label: "Playback source",
+    helper: "Use the current media source app as the small Discord image.",
+  },
+  {
+    value: "library",
+    label: "Gallery image",
+    helper: "Use a locally managed image from the Gallery page.",
+  },
+];
+
+export const DISCORD_ASSET_TEXT_MODE_OPTIONS: Array<{
+  value: DiscordAssetTextMode;
+  label: string;
+  helper: string;
+}> = [
+  {
+    value: "auto",
+    label: "Auto",
+    helper: "Use the default hover text generated from the chosen asset source.",
+  },
+  {
+    value: "custom",
+    label: "Custom text",
+    helper: "Type the hover text that Discord should show for this asset.",
   },
 ];
 

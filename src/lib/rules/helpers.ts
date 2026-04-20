@@ -3,7 +3,11 @@ import type {
   AppMessageTitleRule,
   AppTitleRuleMode,
   DiscordActivityType,
+  DiscordAssetTextMode,
   DiscordAppNameMode,
+  DiscordCustomAsset,
+  DiscordCustomAppIconSource,
+  DiscordCustomArtworkSource,
   DiscordCustomPreset,
   DiscordReportMode,
   DiscordRichPresenceButtonConfig,
@@ -112,6 +116,14 @@ export function normalizeDiscordCustomPreset(rule: Partial<DiscordCustomPreset>)
   const customAppName = String(rule.customAppName ?? "").trim();
   const detailsFormat = normalizeDiscordLineFormat(rule.detailsFormat);
   const stateFormat = normalizeDiscordLineFormat(rule.stateFormat);
+  const customArtworkSource = normalizeDiscordCustomArtworkSource(rule.customArtworkSource);
+  const customArtworkTextMode = normalizeDiscordAssetTextMode(rule.customArtworkTextMode);
+  const customArtworkText = String(rule.customArtworkText ?? "").trim();
+  const customArtworkAssetId = String(rule.customArtworkAssetId ?? "").trim();
+  const customAppIconSource = normalizeDiscordCustomAppIconSource(rule.customAppIconSource);
+  const customAppIconTextMode = normalizeDiscordAssetTextMode(rule.customAppIconTextMode);
+  const customAppIconText = String(rule.customAppIconText ?? "").trim();
+  const customAppIconAssetId = String(rule.customAppIconAssetId ?? "").trim();
   const buttons = (Array.isArray(rule.buttons) ? rule.buttons : [])
     .map((button) => normalizeDiscordButton(button))
     .filter((button): button is DiscordRichPresenceButtonConfig => button !== null)
@@ -128,6 +140,14 @@ export function normalizeDiscordCustomPreset(rule: Partial<DiscordCustomPreset>)
     !detailsFormat &&
     !stateFormat &&
     !customAppName &&
+    customArtworkSource === "auto" &&
+    customArtworkTextMode === "auto" &&
+    !customArtworkText &&
+    !customArtworkAssetId &&
+    customAppIconSource === "auto" &&
+    customAppIconTextMode === "auto" &&
+    !customAppIconText &&
+    !customAppIconAssetId &&
     buttons.length === 0 &&
     !partyId &&
     partySizeCurrent === null &&
@@ -147,6 +167,14 @@ export function normalizeDiscordCustomPreset(rule: Partial<DiscordCustomPreset>)
     customAppName,
     detailsFormat,
     stateFormat,
+    customArtworkSource,
+    customArtworkTextMode,
+    customArtworkText,
+    customArtworkAssetId,
+    customAppIconSource,
+    customAppIconTextMode,
+    customAppIconText,
+    customAppIconAssetId,
     buttons,
     partyId,
     partySizeCurrent,
@@ -206,6 +234,58 @@ export function normalizeDiscordSmartArtworkPreference(
   value: unknown,
 ): DiscordSmartArtworkPreference {
   return String(value ?? "").trim().toLowerCase() === "app" ? "app" : "music";
+}
+
+export function normalizeDiscordCustomArtworkSource(
+  value: unknown,
+): DiscordCustomArtworkSource {
+  const mode = String(value ?? "").trim().toLowerCase();
+  if (mode === "none" || mode === "music" || mode === "app" || mode === "library") {
+    return mode;
+  }
+  return "auto";
+}
+
+export function normalizeDiscordCustomAppIconSource(
+  value: unknown,
+): DiscordCustomAppIconSource {
+  const mode = String(value ?? "").trim().toLowerCase();
+  if (mode === "none" || mode === "app" || mode === "source" || mode === "library") {
+    return mode;
+  }
+  return "auto";
+}
+
+export function normalizeDiscordAssetTextMode(
+  value: unknown,
+): DiscordAssetTextMode {
+  return String(value ?? "").trim().toLowerCase() === "custom" ? "custom" : "auto";
+}
+
+export function normalizeDiscordCustomAsset(
+  asset: Partial<DiscordCustomAsset>,
+): DiscordCustomAsset | null {
+  const id = String(asset.id ?? "").trim();
+  const name = String(asset.name ?? "").trim();
+  const fileName = String(asset.fileName ?? "").trim();
+  const storedPath = String(asset.storedPath ?? "").trim();
+  const contentType = String(asset.contentType ?? "").trim().toLowerCase();
+  const byteSize = Math.max(0, Number(asset.byteSize) || 0);
+  const createdAt = String(asset.createdAt ?? "").trim();
+
+  if (!id || !name || !fileName || !storedPath || !contentType || !createdAt) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    fileName,
+    storedPath,
+    contentType,
+    byteSize,
+    createdAt,
+  };
 }
 
 export function normalizeDiscordAppNameMode(

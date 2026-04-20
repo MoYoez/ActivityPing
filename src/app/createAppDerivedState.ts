@@ -1,4 +1,5 @@
 import { DEFAULT_HISTORY_TITLE_LIMIT } from "./appConstants";
+import { usesArtworkPublishing } from "./appConfig";
 import { appHistoryRawTitles, clampHistoryLimit } from "./appHistory";
 import {
   activityText,
@@ -70,8 +71,7 @@ export function createAppDerivedState({
   const historyTitleLimit = clampHistoryLimit(config.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
   const appRawTitleCount = baseState.appHistory.reduce((total, entry) => total + appHistoryRawTitles(entry).length, 0);
   const artworkPublishingMissing =
-    (config.discordUseAppArtwork || config.discordUseMusicArtwork) &&
-    config.discordArtworkWorkerUploadUrl.trim().length === 0;
+    usesArtworkPublishing(config) && config.discordArtworkWorkerUploadUrl.trim().length === 0;
   const runtimeAutostartEnabled = config.runtimeAutostartEnabled;
   const runtimeReady = baseState.config.discordApplicationId.trim().length > 0;
   const runtimeRunning = reporterSnapshot.running || discordSnapshot.running;

@@ -326,6 +326,14 @@ fn normalized_custom_preset(preset: &DiscordCustomPreset) -> DiscordCustomPreset
         custom_app_name: preset.custom_app_name.trim().to_string(),
         details_format: normalize_discord_line(&preset.details_format),
         state_format: normalize_discord_line(&preset.state_format),
+        custom_artwork_source: preset.custom_artwork_source.clone(),
+        custom_artwork_text_mode: preset.custom_artwork_text_mode.clone(),
+        custom_artwork_text: preset.custom_artwork_text.trim().to_string(),
+        custom_artwork_asset_id: preset.custom_artwork_asset_id.trim().to_string(),
+        custom_app_icon_source: preset.custom_app_icon_source.clone(),
+        custom_app_icon_text_mode: preset.custom_app_icon_text_mode.clone(),
+        custom_app_icon_text: preset.custom_app_icon_text.trim().to_string(),
+        custom_app_icon_asset_id: preset.custom_app_icon_asset_id.trim().to_string(),
         buttons: normalize_discord_buttons(&preset.buttons),
         party_id: preset.party_id.trim().to_string(),
         party_size_current: normalize_party_size(preset.party_size_current),
@@ -343,6 +351,14 @@ fn apply_custom_preset_to_config(config: &mut ClientConfig, preset: &DiscordCust
     config.discord_custom_mode_status_display = preset.status_display;
     config.discord_custom_mode_app_name_mode = preset.app_name_mode;
     config.discord_custom_mode_custom_app_name = preset.custom_app_name;
+    config.discord_custom_artwork_source = preset.custom_artwork_source;
+    config.discord_custom_artwork_text_mode = preset.custom_artwork_text_mode;
+    config.discord_custom_artwork_text = preset.custom_artwork_text;
+    config.discord_custom_artwork_asset_id = preset.custom_artwork_asset_id;
+    config.discord_custom_app_icon_source = preset.custom_app_icon_source;
+    config.discord_custom_app_icon_text_mode = preset.custom_app_icon_text_mode;
+    config.discord_custom_app_icon_text = preset.custom_app_icon_text;
+    config.discord_custom_app_icon_asset_id = preset.custom_app_icon_asset_id;
     config.discord_details_format = preset.details_format;
     config.discord_state_format = preset.state_format;
     config.discord_custom_buttons = preset.buttons;
@@ -361,6 +377,14 @@ fn config_matches_custom_preset(config: &ClientConfig, preset: &DiscordCustomPre
         && config.discord_custom_mode_status_display == preset.status_display
         && config.discord_custom_mode_app_name_mode == preset.app_name_mode
         && config.discord_custom_mode_custom_app_name.trim() == preset.custom_app_name
+        && config.discord_custom_artwork_source == preset.custom_artwork_source
+        && config.discord_custom_artwork_text_mode == preset.custom_artwork_text_mode
+        && config.discord_custom_artwork_text.trim() == preset.custom_artwork_text
+        && config.discord_custom_artwork_asset_id.trim() == preset.custom_artwork_asset_id
+        && config.discord_custom_app_icon_source == preset.custom_app_icon_source
+        && config.discord_custom_app_icon_text_mode == preset.custom_app_icon_text_mode
+        && config.discord_custom_app_icon_text.trim() == preset.custom_app_icon_text
+        && config.discord_custom_app_icon_asset_id.trim() == preset.custom_app_icon_asset_id
         && normalize_discord_line(&config.discord_details_format) == preset.details_format
         && normalize_discord_line(&config.discord_state_format) == preset.state_format
         && normalize_discord_buttons(&config.discord_custom_buttons) == preset.buttons

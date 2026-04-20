@@ -1,14 +1,19 @@
 import type {
   AppMessageRuleGroup,
   ClientConfig,
+  DiscordCustomAsset,
   DiscordCustomPreset,
   DiscordRichPresenceButtonConfig,
 } from "../../types";
 
 import {
   normalizeDiscordActivityType,
+  normalizeDiscordAssetTextMode,
   normalizeDiscordAppNameMode,
   normalizeDiscordButton,
+  normalizeDiscordCustomAsset,
+  normalizeDiscordCustomAppIconSource,
+  normalizeDiscordCustomArtworkSource,
   normalizeDiscordCustomPreset,
   normalizeDiscordLineFormat,
   normalizeDiscordReportMode,
@@ -117,6 +122,17 @@ export function normalizeClientConfig(config: ClientConfig): ClientConfig {
     discordUseMusicArtwork: Boolean(config.discordUseMusicArtwork || legacyArtworkEnabled),
     discordArtworkWorkerUploadUrl: String(config.discordArtworkWorkerUploadUrl ?? "").trim(),
     discordArtworkWorkerToken: String(config.discordArtworkWorkerToken ?? "").trim(),
+    discordCustomArtworkSource: normalizeDiscordCustomArtworkSource(config.discordCustomArtworkSource),
+    discordCustomArtworkTextMode: normalizeDiscordAssetTextMode(config.discordCustomArtworkTextMode),
+    discordCustomArtworkText: String(config.discordCustomArtworkText ?? "").trim(),
+    discordCustomArtworkAssetId: String(config.discordCustomArtworkAssetId ?? "").trim(),
+    discordCustomAppIconSource: normalizeDiscordCustomAppIconSource(config.discordCustomAppIconSource),
+    discordCustomAppIconTextMode: normalizeDiscordAssetTextMode(config.discordCustomAppIconTextMode),
+    discordCustomAppIconText: String(config.discordCustomAppIconText ?? "").trim(),
+    discordCustomAppIconAssetId: String(config.discordCustomAppIconAssetId ?? "").trim(),
+    discordCustomAssets: (Array.isArray(config.discordCustomAssets) ? config.discordCustomAssets : [])
+      .map((asset) => normalizeDiscordCustomAsset(asset))
+      .filter((asset): asset is DiscordCustomAsset => asset !== null),
     discordDetailsFormat,
     discordStateFormat,
     discordCustomButtons: (Array.isArray(config.discordCustomButtons) ? config.discordCustomButtons : [])

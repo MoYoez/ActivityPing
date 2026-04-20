@@ -10,7 +10,9 @@ use image::{
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::models::ClientConfig;
+use crate::models::{
+    ClientConfig, DiscordCustomAppIconSource, DiscordCustomArtworkSource,
+};
 
 const UPLOADER_SERVICE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const URL_EXPIRES_IN_SECS: u64 = 3_600;
@@ -304,13 +306,16 @@ fn encode_jpeg(image: &DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
 pub fn prepare_artwork_publisher(
     config: &ClientConfig,
 ) -> Result<Option<ArtworkPublisher>, String> {
-    if !config.discord_use_app_artwork && !config.discord_use_music_artwork {
+    if !artwork_publishing_enabled(config) {
         return Ok(None);
     }
 
     let endpoint_url = config.discord_artwork_worker_upload_url.trim();
     if endpoint_url.is_empty() {
-        return Err("Discord artwork uploader service URL is required.".into());
+        return Err(
+            "Discord artwork uploader service URL is required when app artwork, music artwork, or Custom Gallery images are enabled."
+                .into(),
+        );
     }
 
     reqwest::Url::parse(endpoint_url)
@@ -326,6 +331,23 @@ pub fn prepare_artwork_publisher(
         endpoint_url: endpoint_url.to_string(),
         token: if token.is_empty() { None } else { Some(token) },
     }))
+}
+
+pub fn artwork_publishing_enabled(config: &ClientConfig) -> bool {
+    config.discord_use_app_artwork
+        || config.discord_use_music_artwork
+        || matches!(
+            config.discord_custom_artwork_source,
+            DiscordCustomArtworkSource::Music | DiscordCustomArtworkSource::App
+        )
+        || (config.discord_custom_artwork_source == DiscordCustomArtworkSource::Library
+            && !config.discord_custom_artwork_asset_id.trim().is_empty())
+        || matches!(
+            config.discord_custom_app_icon_source,
+            DiscordCustomAppIconSource::App | DiscordCustomAppIconSource::Source
+        )
+        || (config.discord_custom_app_icon_source == DiscordCustomAppIconSource::Library
+            && !config.discord_custom_app_icon_asset_id.trim().is_empty())
 }
 
 #[cfg(test)]

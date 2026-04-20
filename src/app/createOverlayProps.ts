@@ -141,6 +141,7 @@ export function createOverlayProps(args: CreateOverlayPropsArgs) {
       ? {
           preset: args.activeCustomPreset,
           presetIndex: args.activeCustomPresetIndex,
+          assets: args.config.discordCustomAssets,
           detailsForceCustomChoice: args.presetDetailsForceCustomChoice,
           stateForceCustomChoice: args.presetStateForceCustomChoice,
           presetAdvancedAddonsConfigured: args.activeCustomPresetAdvancedAddonsConfigured,
