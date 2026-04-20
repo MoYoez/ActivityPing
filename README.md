@@ -92,6 +92,32 @@ That lets you keep raw activity private while still publishing a cleaner summary
 - `Listening to Track Name`
 - `Coding | VS Code`
 
+## Platform Support
+
+Foreground, window-title, and media detection are platform-specific.
+
+- **Windows**
+  - Foreground app and window title capture use native Win32 APIs.
+  - Media capture uses the Windows Global System Media Transport Controls APIs.
+  - No extra accessibility permission is required by the current implementation.
+- **macOS**
+  - Foreground app capture uses the native bridge.
+  - Window title capture requires Accessibility permission.
+  - Media capture requires `nowplaying-cli` (`brew install nowplaying-cli`).
+- **Linux**
+  - **X11**: foreground and title capture require `xprop`.
+  - **GNOME Wayland**: requires `gdbus` and the [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) extension.
+  - **KDE Plasma Wayland**: requires `kdotool`.
+  - Media capture requires `playerctl` and an MPRIS-capable player.
+
+Use the built-in self-test to confirm the current machine. For media checks, `No media is currently playing` is a normal result when playback is idle.
+
+Detailed requirements:
+
+- [Linux Foreground Detection Requirements](./docs/linux-wayland-foreground-bridge.md)
+- [macOS Detection Requirements](./docs/macos-foreground-detection.md)
+- [Windows Detection Requirements](./docs/windows-foreground-detection.md)
+
 ## Installation
 
 1. Download the latest desktop build from [Releases](https://github.com/MoYoez/ActivityPing/releases).
@@ -119,6 +145,9 @@ If you only need text status, you can leave Artwork Uploader empty. If you want 
 - [Configuration and Runtime](./docs/configuration-and-runtime.md)
 - [Development notes](./docs/development.md)
 - [Platform notes](./docs/platform-notes.md)
+- [Linux Foreground Detection Requirements](./docs/linux-wayland-foreground-bridge.md)
+- [macOS Detection Requirements](./docs/macos-foreground-detection.md)
+- [Windows Detection Requirements](./docs/windows-foreground-detection.md)
 - [Example artwork uploader](./docs/examples/artwork_uploader_server.py)
 
 ## License
