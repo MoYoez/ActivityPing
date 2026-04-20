@@ -1,74 +1,76 @@
 <p align="center">
-  <img src="./src-tauri/icons/128x128.png" alt="ActivityPing logo" width="96" height="96">
-</p>
-
-<h2 align="center">ActivityPing</h2>
-
-<p align="center">
-  A desktop activity monitor for rule-based local reporting and Discord Rich Presence sync.
-</p>
-
-<p align="center">
-  <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" />
-  <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2.x-24C8DB" />
-  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.x-3178C6" />
+  <img src="./src-tauri/icons/128x128.png" alt="ActivityPing" width="100" height="100">
+  <h2 align="center">ActivityPing</h2>
+  <p align="center">
+    <img alt="visitors" src="https://visitor-badge.laobi.icu/badge?page_id=MoYoez/ActivityPing" />
+    <img alt="License" src="https://img.shields.io/github/license/MoYoez/ActivityPing" />
+    <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/MoYoez/ActivityPing/build-desktop.yml" />
+    <a href="https://github.com/MoYoez/ActivityPing/releases">
+      <img alt="Download from Releases" src="https://img.shields.io/badge/Download-Releases-2ea44f" />
+    </a>
+    <a href="https://deepwiki.com/MoYoez/ActivityPing">
+      <img src="https://deepwiki.com/badge.svg" alt="DeepWiki" />
+    </a>
+  </p>
 </p>
 
 > Capture the app you are using, shape it with local rules, and publish a cleaner status to Discord.
 
-ActivityPing is a Tauri desktop app that watches foreground apps, window titles, and media playback, then turns that data into a configurable local activity feed and Discord Rich Presence payload. It is designed for people who want more control than a one-size-fits-all reporter.
+ActivityPing is a local-first desktop activity relay for Discord Rich Presence. It captures app, title, and media context, then turns them into cleaner status text, artwork, buttons, and presets you can control yourself.
 
-## Highlights ✨
+## Highlights
 
-1. 🧩 Rule-based activity resolution for apps, titles, and matched text
-2. 🎛️ Four Discord output modes: Smart, Music, App, and Custom
-3. 📡 Local runtime monitor with live status, logs, and payload inspection
-4. 🚦 App blacklist and whitelist filters
-5. 🙈 Name-only masking for privacy-sensitive apps
-6. 🎵 Media source blocking for hiding selected playback providers
-7. ✍️ Custom Discord templates and reusable presets with tokens like `{activity}`, `{context}`, and `{rule}`
-8. 🖼️ Optional app icon and music artwork upload pipeline for Discord images
-9. 🧰 Tray support, launch-on-startup, and runtime auto-start
-10. 🩺 Platform self-test and permission helpers for desktop capture
+- 🖥️ Capture foreground app, window title, media metadata, paused media, and playback source
+- 🧩 Build process-based rule groups with plain or regex title subrules and fallback text
+- 🎛️ Publish through four Discord layouts: Smart, Music, App, and Custom
+- 🔗 Attach buttons, party metadata, and join, spectate, or match secrets through rules or Custom mode
+- 🖼️ Upload gallery images once and reuse them in Custom mode asset slots
+- 🔍 Inspect the live runtime monitor, recent log feed, and exact Discord payload JSON
+- 🙈 Control privacy with blacklist or whitelist filters, name-only masking, and media-source blocklists
+- 🧰 Use tray integration, launch-on-startup, runtime autostart, and built-in platform self-test helpers
 
-## Gallery
+## Screenshots
 
 <table>
   <tr>
-    <td><img src="./.github/Assets/preview_main_overview.png" alt="ActivityPing overview" width="100%"></td>
-    <td><img src="./.github/Assets/preview_main_setting.png" alt="ActivityPing settings" width="100%"></td>
+    <td><img src="./.github/Assets/preview_main_overview.png" alt="ActivityPing live monitor overview" width="100%"></td>
+    <td><img src="./.github/Assets/preview_main_setting.png" alt="ActivityPing settings and mode selection" width="100%"></td>
   </tr>
   <tr>
-    <td align="center"><strong>Runtime overview</strong></td>
-    <td align="center"><strong>RPC and monitor settings</strong></td>
+    <td align="center"><strong>Live monitor, capture state, and runtime log</strong></td>
+    <td align="center"><strong>RPC setup, reporting modes, and core settings</strong></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="./.github/Assets/preview_main_rule_groups.png" alt="ActivityPing rule groups" width="100%"></td>
+    <td colspan="2"><img src="./.github/Assets/preview_main_rule_groups.png" alt="ActivityPing detailed rule editor" width="100%"></td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><strong>Rule group editor</strong></td>
+    <td colspan="2" align="center"><strong>Detailed rule editor with filters, title subrules, and add-ons</strong></td>
   </tr>
 </table>
 
 <table>
   <tr>
-    <td><img src="./.github/Assets/preview_main_app_mode.png" alt="ActivityPing app mode" width="100%"></td>
-    <td><img src="./.github/Assets/preview_main_custom_mode.png" alt="ActivityPing custom mode" width="100%"></td>
-    <td><img src="./.github/Assets/preview_main_music_mode.png" alt="ActivityPing music mode" width="100%"></td>
+    <td><img src="./.github/Assets/preview_main_app_mode.png" alt="ActivityPing App mode Rich Presence" width="100%"></td>
+    <td><img src="./.github/Assets/preview_main_music_mode.png" alt="ActivityPing Music mode Rich Presence" width="100%"></td>
+    <td><img src="./.github/Assets/preview_main_smart_mode_with_music.png" alt="ActivityPing Smart mode with music Rich Presence" width="100%"></td>
   </tr>
   <tr>
     <td align="center"><strong>App mode</strong></td>
-    <td align="center"><strong>Custom Discord mode</strong></td>
     <td align="center"><strong>Music mode</strong></td>
+    <td align="center"><strong>Smart mode with media</strong></td>
   </tr>
 </table>
 
-<p align="center">
-  <img src="./.github/Assets/preview_main_smart_mode_with_music.png" alt="ActivityPing smart mode with music" width="520">
-</p>
-
-<p align="center"><strong>Smart mode with music</strong></p>
+<table>
+  <tr>
+    <td><img src="./.github/Assets/preview_main_custom_mode.png" alt="ActivityPing Custom mode Rich Presence" width="100%"></td>
+    <td><img src="./.github/Assets/preview_main_custom_with_preset.png" alt="ActivityPing preset-driven Rich Presence" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Custom mode with custom text, artwork, and buttons</strong></td>
+    <td align="center"><strong>Preset-driven Custom mode result</strong></td>
+  </tr>
+</table>
 
 ## What It Does
 
@@ -80,22 +82,44 @@ ActivityPing continuously reads:
 
 It then applies local rules and formatting before exposing the result in two places:
 
-- the built-in runtime monitor
+- the built-in live monitor
 - Discord Rich Presence
 
-This lets you keep raw app activity private while still publishing a useful status like:
+That lets you keep raw activity private while still publishing a cleaner summary such as:
 
 - `Writing release notes`
-- `Reviewing PRs`
+- `Reviewing pull requests`
 - `Listening to Track Name`
 - `Coding | VS Code`
 
-## Docs
+## Installation
 
+1. Download the latest desktop build from [Releases](https://github.com/MoYoez/ActivityPing/releases).
+2. Launch ActivityPing and save your Discord Application ID.
+3. Choose a reporting mode, then start runtime.
+4. If you want Discord images, configure an Artwork Uploader first.
+
+**Configuration tip**
+
+Discord Rich Presence image slots need public image URLs. Your app icons, album art, and gallery images are local files, so ActivityPing cannot send them to Discord directly. The Artwork Uploader converts those local images into reachable URLs for Discord to fetch.
+
+If you only need text status, you can leave Artwork Uploader empty. If you want artwork enabled, see [Configuration and Runtime](./docs/configuration-and-runtime.md) or the [example uploader](./docs/examples/artwork_uploader_server.py).
+
+## Reporting Modes
+
+- **Smart**: prioritize the matched activity text, then optionally keep foreground app and active music context together
+- **Music**: use a music-first layout with track, artist, album, playback progress, and source app
+- **App**: focus on the foreground app and rule-resolved activity text
+- **Custom**: edit `details` and `state` directly with tokens like `{activity}`, `{context}`, `{title}`, `{song}`, and `{artist}`, then save reusable presets
+
+## Documentation
+
+- [Documentation index](./docs/README.md)
 - [Rules and Templates](./docs/rules-and-templates.md)
-- [Development](./docs/development.md)
 - [Configuration and Runtime](./docs/configuration-and-runtime.md)
-- [Platform Notes](./docs/platform-notes.md)
+- [Development notes](./docs/development.md)
+- [Platform notes](./docs/platform-notes.md)
+- [Example artwork uploader](./docs/examples/artwork_uploader_server.py)
 
 ## License
 
@@ -106,5 +130,5 @@ This project is licensed under the [GNU General Public License v3.0](./LICENSE).
 - [nowplaying-cli](https://github.com/kirtan-shah/nowplaying-cli)
 - [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter)
 - [discord-music-presence](https://github.com/ungive/discord-music-presence)
-- [waken-wa](https://github.com/MoYoez/waken-wa) (My own project, main functions are based on this!)
-- [sleepy](https://github.com/sleepy-project/sleepy) (Some call methods were referenced)
+- [waken-wa](https://github.com/MoYoez/waken-wa)
+- [sleepy](https://github.com/sleepy-project/sleepy)
