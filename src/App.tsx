@@ -1,4 +1,5 @@
-import { startTransition, useMemo } from "react";
+import { startTransition, useEffect, useMemo } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import "./App.css";
@@ -63,10 +64,21 @@ import { SECTION_COPY, SECTION_ORDER, type ViewSection } from "./components/page
 import { SettingsPage } from "./components/pages/SettingsPage";
 import { AppShellLayout } from "./components/layout/AppShellLayout";
 import { RulesDialogContent } from "./components/rules/RulesDialogContent";
-import { hideToTray } from "./lib/api";
+import { hideToTray, loadAppState } from "./lib/api";
+import { normalizeClientConfig } from "./lib/rules";
 import { type NoticeTone } from "./store/appUiStore";
 import { useAppUiState } from "./store/useAppUiState";
 import type { DiscordDebugPayload, ReporterLogEntry } from "./types";
+
+const TRAY_QUICK_SWITCH_EVENT = "tray-quick-switch-applied";
+
+interface TrayQuickSwitchNotice {
+  tone: NoticeTone;
+  title: string;
+  detail: string;
+  reloadState: boolean;
+  refreshRuntime?: boolean;
+}
 
 function App() {
   const {
@@ -315,6 +327,46 @@ function App() {
       setBusy((current) => ({ ...current, [name]: false }));
     }
   }
+
+  useEffect(() => {
+    let disposed = false;
+    const unlistenPromise = listen<TrayQuickSwitchNotice>(TRAY_QUICK_SWITCH_EVENT, (event) => {
+      void (async () => {
+        if (disposed) return;
+
+        if (event.payload.reloadState) {
+          const state = await loadAppState();
+          if (disposed) return;
+          const resolvedConfig = normalizeClientConfig(state.config);
+          setBaseState({ ...state, config: resolvedConfig });
+          setConfig(resolvedConfig);
+          setAppliedRuntimeConfigSignature(null);
+          await refreshReporter();
+          if (disposed) return;
+          await refreshDiscord();
+          if (disposed) return;
+        } else if (event.payload.refreshRuntime) {
+          await refreshReporter();
+          if (disposed) return;
+          await refreshDiscord();
+          if (disposed) return;
+        }
+
+        notify(event.payload.tone, event.payload.title, event.payload.detail);
+      })();
+    });
+
+    return () => {
+      disposed = true;
+      void unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [
+    refreshDiscord,
+    refreshReporter,
+    setAppliedRuntimeConfigSignature,
+    setBaseState,
+    setConfig,
+  ]);
 
   function openDiscordPayloadJson() {
     setJsonViewer({

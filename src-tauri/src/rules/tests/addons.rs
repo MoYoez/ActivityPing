@@ -2,7 +2,7 @@ use super::super::*;
 use crate::{
     models::{
         AppMessageRuleGroup, AppMessageTitleRule, AppTitleRuleMode, ClientConfig,
-        DiscordRichPresenceButtonConfig, DiscordReportMode,
+        DiscordReportMode, DiscordRichPresenceButtonConfig,
     },
     platform::{ForegroundSnapshot, MediaInfo},
 };
@@ -51,7 +51,10 @@ fn title_subrule_keeps_group_buttons_when_title_buttons_are_empty() {
     )
     .expect("activity");
 
-    assert_eq!(resolved.status_text.as_deref(), Some("Watching Bilibili Now!"));
+    assert_eq!(
+        resolved.status_text.as_deref(),
+        Some("Watching Bilibili Now!")
+    );
     assert_eq!(resolved.discord_addons.buttons.len(), 1);
     assert_eq!(resolved.discord_addons.buttons[0].label, "Open Website");
 }
@@ -74,7 +77,10 @@ fn title_subrule_buttons_override_group_buttons_when_present() {
     )
     .expect("activity");
 
-    assert_eq!(resolved.status_text.as_deref(), Some("Watching Bilibili Now!"));
+    assert_eq!(
+        resolved.status_text.as_deref(),
+        Some("Watching Bilibili Now!")
+    );
     assert_eq!(resolved.discord_addons.buttons.len(), 1);
     assert_eq!(resolved.discord_addons.buttons[0].label, "Open Video");
 }

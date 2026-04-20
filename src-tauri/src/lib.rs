@@ -48,6 +48,9 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_opener::init());
 
     #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_notification::init());
+
+    #[cfg(desktop)]
     let builder = builder
         .manage(ReporterRuntime::new())
         .manage(DiscordPresenceRuntime::new());

@@ -37,6 +37,13 @@ use crate::tray;
 #[cfg(desktop)]
 use tauri_plugin_autostart::ManagerExt;
 
+#[cfg(desktop)]
+fn refresh_tray_menu(app: &AppHandle) {
+    if let Err(error) = tray::refresh_tray(app) {
+        eprintln!("Failed to refresh the tray menu: {error}");
+    }
+}
+
 #[tauri::command]
 pub fn load_app_state(app: AppHandle) -> Result<AppStatePayload, String> {
     state_store::load_app_state(&app)
@@ -44,7 +51,12 @@ pub fn load_app_state(app: AppHandle) -> Result<AppStatePayload, String> {
 
 #[tauri::command]
 pub fn save_app_state(app: AppHandle, payload: AppStatePayload) -> Result<(), String> {
-    state_store::save_app_state(&app, &payload)
+    state_store::save_app_state(&app, &payload)?;
+    #[cfg(desktop)]
+    if let Err(error) = tray::refresh_tray(&app) {
+        eprintln!("Failed to refresh the tray menu after saving state: {error}");
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -88,7 +100,10 @@ pub fn start_realtime_reporter(
     config: ClientConfig,
 ) -> Result<ApiResult<crate::models::RealtimeReporterSnapshot>, String> {
     match reporter.start(config, load_locale(&app)) {
-        Ok(snapshot) => Ok(ApiResult::success(200, snapshot)),
+        Ok(snapshot) => {
+            refresh_tray_menu(&app);
+            Ok(ApiResult::success(200, snapshot))
+        }
         Err(error) => Ok(ApiResult::failure_localized(
             400,
             reporter_start_error_code(&error).map(str::to_string),
@@ -102,9 +117,12 @@ pub fn start_realtime_reporter(
 #[cfg(desktop)]
 #[tauri::command]
 pub fn stop_realtime_reporter(
+    app: AppHandle,
     reporter: State<'_, ReporterRuntime>,
 ) -> Result<ApiResult<crate::models::RealtimeReporterSnapshot>, String> {
-    Ok(ApiResult::success(200, reporter.stop()))
+    let snapshot = reporter.stop();
+    refresh_tray_menu(&app);
+    Ok(ApiResult::success(200, snapshot))
 }
 
 #[cfg(desktop)]
@@ -123,7 +141,10 @@ pub fn start_discord_presence_sync(
     config: ClientConfig,
 ) -> Result<ApiResult<DiscordPresenceSnapshot>, String> {
     match discord_presence_runtime.start(config, load_locale(&app)) {
-        Ok(snapshot) => Ok(ApiResult::success(200, snapshot)),
+        Ok(snapshot) => {
+            refresh_tray_menu(&app);
+            Ok(ApiResult::success(200, snapshot))
+        }
         Err(error) => Ok(ApiResult::failure_localized(
             400,
             discord_start_error_code(&error).map(str::to_string),
@@ -137,9 +158,12 @@ pub fn start_discord_presence_sync(
 #[cfg(desktop)]
 #[tauri::command]
 pub fn stop_discord_presence_sync(
+    app: AppHandle,
     discord_presence_runtime: State<'_, DiscordPresenceRuntime>,
 ) -> Result<ApiResult<DiscordPresenceSnapshot>, String> {
-    Ok(ApiResult::success(200, discord_presence_runtime.stop()))
+    let snapshot = discord_presence_runtime.stop();
+    refresh_tray_menu(&app);
+    Ok(ApiResult::success(200, snapshot))
 }
 
 #[cfg(desktop)]
