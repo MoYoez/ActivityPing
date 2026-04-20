@@ -16,7 +16,12 @@ import {
   shouldCaptureHistoryActivity,
 } from "./appHistory";
 import { clampPage, clampRuleIndex, configSignature, pageForIndex, sameJsonValue } from "./appFormatting";
-import { getClientCapabilities, loadAppState, saveAppState } from "../lib/api";
+import {
+  getAutostartEnabled,
+  getClientCapabilities,
+  loadAppState,
+  saveAppState,
+} from "../lib/api";
 import { normalizeClientConfig } from "../lib/rules";
 import type { JsonViewerState } from "../store/appUiStore";
 import type {
@@ -110,10 +115,25 @@ export function useAppLifecycle({
     let cancelled = false;
     void (async () => {
       const caps = await getClientCapabilities();
-      if (!cancelled && caps.success && caps.data) setCapabilities(caps.data);
+      const resolvedCapabilities = caps.success && caps.data ? caps.data : null;
+      if (!cancelled && resolvedCapabilities) setCapabilities(resolvedCapabilities);
       const state = await loadAppState();
       if (cancelled) return;
-      const resolvedConfig = normalizeClientConfig(state.config);
+      let resolvedConfig = normalizeClientConfig(state.config);
+      let syncedLaunchOnStartup = false;
+
+      if (resolvedCapabilities?.autostart) {
+        try {
+          const launchOnStartup = await getAutostartEnabled();
+          if (launchOnStartup !== resolvedConfig.launchOnStartup) {
+            resolvedConfig = { ...resolvedConfig, launchOnStartup };
+            syncedLaunchOnStartup = true;
+          }
+        } catch {
+          // Ignore plugin read failures here and keep the saved draft state.
+        }
+      }
+
       const historyTitleLimit = clampHistoryLimit(resolvedConfig.captureHistoryTitleLimit, DEFAULT_HISTORY_TITLE_LIMIT);
       const payload = {
         config: resolvedConfig,
@@ -124,6 +144,9 @@ export function useAppLifecycle({
       setBaseState(payload);
       setConfig(payload.config);
       setHydrated(true);
+      if (syncedLaunchOnStartup) {
+        void saveAppState(payload).catch(() => {});
+      }
       await refreshReporter();
       await refreshDiscord();
     })();

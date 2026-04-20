@@ -35,8 +35,6 @@ impl Drop for PlatformSelfTestRunGuard {
 use crate::realtime_reporter::{snapshot_result, ReporterRuntime};
 #[cfg(desktop)]
 use crate::tray;
-#[cfg(desktop)]
-use tauri_plugin_autostart::ManagerExt;
 
 #[cfg(desktop)]
 fn refresh_tray_menu(app: &AppHandle) {
@@ -129,28 +127,6 @@ pub fn get_client_capabilities() -> Result<ApiResult<ClientCapabilities>, String
 #[tauri::command]
 pub fn hide_to_tray(app: AppHandle) -> Result<(), String> {
     tray::hide_main_window(&app)
-}
-
-#[cfg(desktop)]
-#[tauri::command]
-pub fn set_launch_on_startup(app: AppHandle, enabled: bool) -> Result<ApiResult<bool>, String> {
-    let autostart_manager = app.autolaunch();
-    let result = if enabled {
-        autostart_manager.enable()
-    } else {
-        autostart_manager.disable()
-    };
-
-    match result {
-        Ok(()) => Ok(ApiResult::success(200, enabled)),
-        Err(error) => Ok(ApiResult::failure_localized(
-            400,
-            None::<String>,
-            format!("Failed to update launch with system: {error}"),
-            None,
-            None,
-        )),
-    }
 }
 
 #[cfg(desktop)]

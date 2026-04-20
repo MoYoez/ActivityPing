@@ -96,7 +96,6 @@ pub fn run() {
         commands::get_discord_custom_asset_preview,
         commands::get_client_capabilities,
         commands::hide_to_tray,
-        commands::set_launch_on_startup,
         commands::start_realtime_reporter,
         commands::stop_realtime_reporter,
         commands::get_realtime_reporter_snapshot,

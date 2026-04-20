@@ -1,4 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
+import {
+  disable as disableAutostart,
+  enable as enableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
 import type {
   ApiResult,
   AppStatePayload,
@@ -218,10 +223,25 @@ export async function hideToTray() {
   await invoke("hide_to_tray");
 }
 
+export async function getAutostartEnabled() {
+  try {
+    return await isAutostartEnabled();
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message : "Launch with system status could not be loaded.",
+    );
+  }
+}
+
 export async function setAutostartEnabled(enabled: boolean) {
-  const result = await invokeApi<boolean>("set_launch_on_startup", { enabled });
-  if (!result.success) {
-    throw new Error(resolveApiError(result, "Launch with system could not be updated."));
+  try {
+    if (enabled) {
+      await enableAutostart();
+    } else {
+      await disableAutostart();
+    }
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : "Launch with system could not be updated.");
   }
 }
 
