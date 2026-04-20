@@ -33,6 +33,10 @@ export function createDiscordButton(): DiscordRichPresenceButtonConfig {
   return { label: "", url: "" };
 }
 
+export function createAppMessageTitleRule() {
+  return { mode: "plain" as const, pattern: "", text: "", buttons: [] };
+}
+
 export function createAppMessageRuleGroup(): AppMessageRuleGroup {
   return {
     processMatch: "",

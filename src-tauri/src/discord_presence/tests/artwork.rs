@@ -65,6 +65,47 @@ fn mixed_mode_prefers_source_icon_when_music_artwork_is_enabled() {
 }
 
 #[test]
+fn mixed_mode_app_prefer_skips_music_artwork_even_when_media_is_active() {
+    let config = ClientConfig {
+        discord_report_mode: DiscordReportMode::Mixed,
+        discord_use_music_artwork: true,
+        discord_smart_artwork_preference: crate::models::DiscordSmartArtworkPreference::App,
+        ..artwork_config()
+    };
+    let media = sample_media();
+
+    let artwork = build_presence_artwork(&config, &media);
+
+    assert!(artwork.is_none());
+}
+
+#[test]
+fn mixed_mode_app_prefer_uses_foreground_app_icon_as_main_artwork() {
+    let config = ClientConfig {
+        discord_report_mode: DiscordReportMode::Mixed,
+        discord_use_music_artwork: true,
+        discord_use_app_artwork: true,
+        discord_smart_artwork_preference: crate::models::DiscordSmartArtworkPreference::App,
+        ..ClientConfig::default()
+    };
+    let foreground_icon = MediaArtwork {
+        bytes: vec![9, 9, 9],
+        content_type: "image/png".into(),
+    };
+    let mut media = sample_media();
+    media.source_app_id = "spotify.exe".into();
+    media.source_icon = Some(MediaArtwork {
+        bytes: vec![7, 7, 7],
+        content_type: "image/png".into(),
+    });
+
+    let icon =
+        build_presence_icon(&config, "code.exe", Some(&foreground_icon), &media).expect("icon");
+
+    assert_eq!(icon.hover_text, "Code");
+}
+
+#[test]
 fn app_artwork_becomes_main_icon_when_music_is_unavailable() {
     let config = ClientConfig {
         discord_report_mode: DiscordReportMode::Mixed,

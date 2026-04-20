@@ -13,6 +13,7 @@ export function DiscordTemplateTokenRow({
           key={token}
           className="btn btn-ghost btn-xs no-animation"
           type="button"
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => onInsert(token)}
         >
           {token}

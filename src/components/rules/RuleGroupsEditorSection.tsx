@@ -1,6 +1,7 @@
 import { SuggestionInput } from "../ListEditor";
 import { summarizeRuleGroup } from "../../lib/rules";
 import type { AppMessageRuleGroup, AppMessageTitleRule } from "../../types";
+import { createDiscordButton } from "../../app/appConfig";
 import { RuleDiscordAddonsEditor } from "./RuleDiscordAddonsEditor";
 
 type TitleRuleMode = AppMessageTitleRule["mode"];
@@ -57,6 +58,7 @@ export function RuleGroupsEditorSection({
   onTitleRuleModeChange,
   onTitleRulePatternChange,
   onTitleRuleTextChange,
+  patchTitleRuleAt,
   patchRuleAt,
   patchRuleDiscordButtonAt,
   normalizePositiveNumberInput,
@@ -112,6 +114,11 @@ export function RuleGroupsEditorSection({
   onTitleRuleModeChange: (index: number, mode: TitleRuleMode) => void;
   onTitleRulePatternChange: (index: number, value: string) => void;
   onTitleRuleTextChange: (index: number, value: string) => void;
+  patchTitleRuleAt: (
+    ruleIndex: number,
+    titleRuleIndex: number,
+    updater: (rule: AppMessageTitleRule) => AppMessageTitleRule,
+  ) => void;
   patchRuleAt: (index: number, updater: (rule: AppMessageRuleGroup) => AppMessageRuleGroup) => void;
   patchRuleDiscordButtonAt: (
     ruleIndex: number,
@@ -296,6 +303,7 @@ export function RuleGroupsEditorSection({
                     <div className="grid gap-2">
                       {pagedTitleRules.map((titleRule, offset) => {
                         const titleRuleIndex = titleRulePageStart + offset;
+                        const titleButtons = Array.isArray(titleRule.buttons) ? titleRule.buttons : [];
                         return (
                           <article key={`${activeRuleIndex}-${titleRuleIndex}`} className={`${subruleCardClass} p-4`}>
                             <div className={panelHeadClass}>
@@ -365,6 +373,104 @@ export function RuleGroupsEditorSection({
                                 />
                               </label>
                             </div>
+
+                            <details className="discord-advanced-panel rounded-box border border-base-300 bg-base-200/45 p-4 mt-4">
+                              <summary className="discord-advanced-summary flex cursor-pointer list-none items-center justify-between gap-3">
+                                <div>
+                                  <strong className="block font-semibold">Title buttons</strong>
+                                  <p className="mt-1 text-sm text-base-content/70">
+                                    These buttons apply only when this title subrule matches. Leave empty to fall back to the group buttons.
+                                  </p>
+                                </div>
+                                <div className="discord-advanced-summary-meta">
+                                  {titleButtons.length > 0 ? (
+                                    <span className="badge badge-soft">
+                                      {titleButtons.length} / 2 buttons
+                                    </span>
+                                  ) : null}
+                                  <span className="discord-advanced-summary-hint" aria-hidden="true">
+                                    <span className="discord-advanced-summary-hint-closed">Expand</span>
+                                    <span className="discord-advanced-summary-hint-open">Collapse</span>
+                                    <span className="discord-advanced-summary-caret">v</span>
+                                  </span>
+                                </div>
+                              </summary>
+                              <div className="mt-4 space-y-3">
+                                {titleButtons.map((button, buttonIndex) => (
+                                  <div
+                                    key={`${activeRuleIndex}-${titleRuleIndex}-button-${buttonIndex}`}
+                                    className="rounded-box border border-base-300 bg-base-100/80 p-3 space-y-3"
+                                  >
+                                    <div className="field-grid">
+                                      <label className={fieldClass}>
+                                        <span>Button label</span>
+                                        <input
+                                          className={inputClass}
+                                          value={button.label}
+                                          onChange={(e) => {
+                                            const value = e.currentTarget.value;
+                                            patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({
+                                              ...rule,
+                                              buttons: (Array.isArray(rule.buttons) ? rule.buttons : []).map((current, currentIndex) =>
+                                                currentIndex === buttonIndex ? { ...current, label: value } : current,
+                                              ),
+                                            }));
+                                          }}
+                                          placeholder="Open website"
+                                        />
+                                      </label>
+                                      <label className={fieldClass}>
+                                        <span>Button URL</span>
+                                        <input
+                                          className={inputClass}
+                                          value={button.url}
+                                          onChange={(e) => {
+                                            const value = e.currentTarget.value;
+                                            patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({
+                                              ...rule,
+                                              buttons: (Array.isArray(rule.buttons) ? rule.buttons : []).map((current, currentIndex) =>
+                                                currentIndex === buttonIndex ? { ...current, url: value } : current,
+                                              ),
+                                            }));
+                                          }}
+                                          placeholder="https://example.com"
+                                        />
+                                      </label>
+                                    </div>
+                                    <div className="card-actions justify-end">
+                                      <button
+                                        className={dangerButtonClass}
+                                        type="button"
+                                        onClick={() =>
+                                          patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({
+                                            ...rule,
+                                            buttons: (Array.isArray(rule.buttons) ? rule.buttons : []).filter(
+                                              (_, currentIndex) => currentIndex !== buttonIndex,
+                                            ),
+                                          }))
+                                        }
+                                      >
+                                        Remove button
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                                {titleButtons.length < 2 ? (
+                                  <button
+                                    className={buttonClass}
+                                    type="button"
+                                    onClick={() =>
+                                      patchTitleRuleAt(activeRuleIndex, titleRuleIndex, (rule) => ({
+                                        ...rule,
+                                        buttons: [...(Array.isArray(rule.buttons) ? rule.buttons : []), createDiscordButton()],
+                                      }))
+                                    }
+                                  >
+                                    Add title button
+                                  </button>
+                                ) : null}
+                              </div>
+                            </details>
                           </article>
                         );
                       })}

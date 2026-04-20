@@ -43,7 +43,7 @@ export function RuleDiscordAddonsEditor({
         <div>
           <strong className="block font-semibold">Discord add-ons</strong>
           <p className="mt-1 text-sm text-base-content/70">
-            The matched rule group can publish buttons, party metadata, or social secrets outside Custom mode.
+            The matched rule group can publish buttons, party metadata, or social secrets outside Custom mode. Title subrules can override the buttons only.
           </p>
         </div>
         <div className="discord-advanced-summary-meta">

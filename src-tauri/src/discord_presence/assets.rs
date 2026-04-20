@@ -1,5 +1,5 @@
 use crate::{
-    models::{ClientConfig, DiscordReportMode},
+    models::{ClientConfig, DiscordReportMode, DiscordSmartArtworkPreference},
     platform::{display_name_for_app_id, MediaArtwork, MediaInfo},
 };
 
@@ -12,6 +12,7 @@ pub(super) fn build_presence_artwork(
     if !config.discord_use_music_artwork
         || !media.is_reportable(config.report_stopped_media)
         || config.discord_report_mode == DiscordReportMode::App
+        || smart_mode_prefers_app_artwork(config)
     {
         return None;
     }
@@ -56,6 +57,13 @@ pub(super) fn build_presence_icon(
         return None;
     }
 
+    if smart_mode_prefers_app_artwork(config) {
+        if config.discord_use_app_artwork {
+            return build_foreground_app_icon(process_name, foreground_app_icon);
+        }
+        return None;
+    }
+
     if media.is_reportable(config.report_stopped_media)
         && matches!(
             config.discord_report_mode,
@@ -88,6 +96,11 @@ pub(super) fn build_presence_icon(
     }
 
     None
+}
+
+fn smart_mode_prefers_app_artwork(config: &ClientConfig) -> bool {
+    config.discord_report_mode == DiscordReportMode::Mixed
+        && config.discord_smart_artwork_preference == DiscordSmartArtworkPreference::App
 }
 
 fn build_foreground_app_icon(

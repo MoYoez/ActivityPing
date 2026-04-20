@@ -40,7 +40,7 @@ export function exportRulesJson(config: ClientConfig) {
   const normalized = normalizeClientConfig(config);
   return JSON.stringify(
     {
-      version: 4,
+      version: 5,
       exportedAt: new Date().toISOString(),
       rules: {
         appMessageRules: normalized.appMessageRules,
@@ -90,6 +90,9 @@ function normalizeImportedRuleGroup(raw: unknown): AppMessageRuleGroup | null {
         mode: String(titleRule.mode ?? "plain") as AppTitleRuleMode,
         pattern: String(titleRule.pattern ?? ""),
         text: String(titleRule.text ?? ""),
+        buttons: Array.isArray((titleRule as { buttons?: unknown }).buttons)
+          ? ((titleRule as { buttons?: unknown }).buttons as DiscordRichPresenceButtonConfig[])
+          : [],
       });
     })
     .filter((item): item is AppMessageTitleRule => item !== null);
@@ -186,7 +189,14 @@ export function parseRulesJson(raw: string): ParsedRulesPayload {
   }
 
   const root = json as Record<string, unknown>;
-  if (typeof root.version === "number" && root.version !== 1 && root.version !== 2 && root.version !== 3 && root.version !== 4) {
+  if (
+    typeof root.version === "number" &&
+    root.version !== 1 &&
+    root.version !== 2 &&
+    root.version !== 3 &&
+    root.version !== 4 &&
+    root.version !== 5
+  ) {
     return { ok: false, error: "Unsupported rules JSON version." };
   }
 

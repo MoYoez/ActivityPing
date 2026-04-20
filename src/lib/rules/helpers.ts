@@ -7,6 +7,7 @@ import type {
   DiscordCustomPreset,
   DiscordReportMode,
   DiscordRichPresenceButtonConfig,
+  DiscordSmartArtworkPreference,
   DiscordStatusDisplay,
 } from "../../types";
 
@@ -44,10 +45,14 @@ export function normalizeTitleRule(rule: AppMessageTitleRule): AppMessageTitleRu
   const mode: AppTitleRuleMode = String(rule.mode ?? "").trim().toLowerCase() === "regex" ? "regex" : "plain";
   const pattern = String(rule.pattern ?? "").trim();
   const text = String(rule.text ?? "").trim();
+  const buttons = (Array.isArray(rule.buttons) ? rule.buttons : [])
+    .map((button) => normalizeDiscordButton(button))
+    .filter((button): button is DiscordRichPresenceButtonConfig => button !== null)
+    .slice(0, 2);
   if (!pattern || !text) {
     return null;
   }
-  return { mode, pattern, text };
+  return { mode, pattern, text, buttons };
 }
 
 export function normalizeRuleGroup(rule: AppMessageRuleGroup): AppMessageRuleGroup | null {
@@ -195,6 +200,12 @@ export function normalizeDiscordStatusDisplay(
     return mode;
   }
   return "name";
+}
+
+export function normalizeDiscordSmartArtworkPreference(
+  value: unknown,
+): DiscordSmartArtworkPreference {
+  return String(value ?? "").trim().toLowerCase() === "app" ? "app" : "music";
 }
 
 export function normalizeDiscordAppNameMode(

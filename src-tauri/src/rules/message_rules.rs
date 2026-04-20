@@ -48,6 +48,22 @@ fn resolve_rule_addons(rule: &AppMessageRuleGroup) -> ResolvedDiscordAddons {
     }
 }
 
+fn resolve_title_rule_addons(
+    title_rule: &AppMessageTitleRule,
+    fallback: &ResolvedDiscordAddons,
+) -> ResolvedDiscordAddons {
+    let buttons = normalize_discord_buttons(&title_rule.buttons);
+    if buttons.is_empty() {
+        return fallback.clone();
+    }
+
+    ResolvedDiscordAddons {
+        buttons,
+        party: fallback.party.clone(),
+        secrets: fallback.secrets.clone(),
+    }
+}
+
 pub(super) fn match_message_rule(
     process_name: &str,
     process_title_for_match: Option<&str>,
@@ -76,7 +92,7 @@ pub(super) fn match_message_rule(
                     process_name,
                     process_title_for_template,
                 )),
-                addons,
+                addons: resolve_title_rule_addons(title_rule, &addons),
             });
         }
 

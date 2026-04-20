@@ -31,8 +31,8 @@ use crate::{
     artwork_server::{prepare_artwork_publisher, ArtworkPublisher, PublishAssetKind},
     backend_locale::BackendLocale,
     models::{
-        ClientConfig, DiscordActivityType, DiscordDebugPayload, DiscordPresenceSnapshot,
-        DiscordReportMode,
+        ClientConfig, DiscordActivityType, DiscordDebugParty, DiscordDebugPayload,
+        DiscordDebugSecrets, DiscordPresenceSnapshot, DiscordReportMode,
     },
     platform::{
         get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing,
@@ -538,6 +538,23 @@ fn apply_discord_presence(
             artwork_hover_text,
             artwork_content_type,
             artwork_upload_error,
+            buttons: payload
+                .buttons
+                .iter()
+                .map(|button| crate::models::DiscordRichPresenceButtonConfig {
+                    label: button.label.clone(),
+                    url: button.url.clone(),
+                })
+                .collect(),
+            party: payload.party.as_ref().map(|party| DiscordDebugParty {
+                id: party.id.clone(),
+                size: party.size,
+            }),
+            secrets: payload.secrets.as_ref().map(|secrets| DiscordDebugSecrets {
+                join: secrets.join.clone(),
+                spectate: secrets.spectate.clone(),
+                match_secret: secrets.match_secret.clone(),
+            }),
         })
     })
 }

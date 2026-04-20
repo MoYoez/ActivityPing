@@ -112,6 +112,7 @@ export function defaultClientConfig(): ClientConfig {
     discordCustomModeCustomAppName: "",
     discordSmartEnableMusicCountdown: true,
     discordSmartShowAppName: false,
+    discordSmartArtworkPreference: "music",
     discordUseAppArtwork: false,
     discordUseMusicArtwork: false,
     discordArtworkWorkerUploadUrl: "",

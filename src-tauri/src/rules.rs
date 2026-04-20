@@ -237,6 +237,7 @@ fn normalize_rule_groups(rules: &[AppMessageRuleGroup]) -> Vec<AppMessageRuleGro
         for title_rule in &rule.title_rules {
             let pattern = title_rule.pattern.trim().to_string();
             let text = title_rule.text.trim().to_string();
+            let buttons = normalize_discord_buttons(&title_rule.buttons);
             if pattern.is_empty() || text.is_empty() {
                 continue;
             }
@@ -244,6 +245,7 @@ fn normalize_rule_groups(rules: &[AppMessageRuleGroup]) -> Vec<AppMessageRuleGro
                 mode: title_rule.mode.clone(),
                 pattern,
                 text,
+                buttons,
             });
         }
 

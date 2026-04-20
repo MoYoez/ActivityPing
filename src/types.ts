@@ -4,6 +4,7 @@ export type DiscordReportMode = "music" | "app" | "mixed" | "custom";
 export type DiscordActivityType = "playing" | "listening" | "watching" | "competing";
 export type DiscordStatusDisplay = "name" | "state" | "details";
 export type DiscordAppNameMode = "default" | "song" | "artist" | "album" | "source" | "custom";
+export type DiscordSmartArtworkPreference = "music" | "app";
 
 export interface ClientCapabilities {
   realtimeReporter: boolean;
@@ -17,6 +18,7 @@ export interface AppMessageTitleRule {
   mode: AppTitleRuleMode;
   pattern: string;
   text: string;
+  buttons: DiscordRichPresenceButtonConfig[];
 }
 
 export interface AppMessageRuleGroup {
@@ -80,6 +82,7 @@ export interface ClientConfig {
   discordCustomModeCustomAppName: string;
   discordSmartEnableMusicCountdown: boolean;
   discordSmartShowAppName: boolean;
+  discordSmartArtworkPreference: DiscordSmartArtworkPreference;
   discordUseAppArtwork: boolean;
   discordUseMusicArtwork: boolean;
   discordArtworkWorkerUploadUrl: string;
@@ -214,6 +217,20 @@ export interface DiscordDebugPayload {
   artworkHoverText?: string | null;
   artworkContentType?: string | null;
   artworkUploadError?: string | null;
+  buttons: DiscordRichPresenceButtonConfig[];
+  party?: DiscordDebugParty | null;
+  secrets?: DiscordDebugSecrets | null;
+}
+
+export interface DiscordDebugParty {
+  id?: string | null;
+  size?: [number, number] | null;
+}
+
+export interface DiscordDebugSecrets {
+  join?: string | null;
+  spectate?: string | null;
+  matchSecret?: string | null;
 }
 
 export interface LocalizedTextEntry {

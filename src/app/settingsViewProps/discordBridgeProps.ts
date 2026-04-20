@@ -72,6 +72,7 @@ export function createDiscordBridgeProps(
     onOpenCustomPresets: args.onOpenCustomPresets,
     onDiscordSmartEnableMusicCountdownChange: (value) => args.update("discordSmartEnableMusicCountdown", value),
     onDiscordSmartShowAppNameChange: (value) => args.update("discordSmartShowAppName", value),
+    onDiscordSmartArtworkPreferenceChange: (value) => args.update("discordSmartArtworkPreference", value),
     onReportStoppedMediaChange: (value) => args.update("reportStoppedMedia", value),
     onDiscordUseAppArtworkChange: (value) => args.update("discordUseAppArtwork", value),
     onDiscordUseMusicArtworkChange: (value) => args.update("discordUseMusicArtwork", value),

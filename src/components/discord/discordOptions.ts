@@ -3,6 +3,7 @@ import type {
   DiscordActivityType,
   DiscordAppNameMode,
   DiscordReportMode,
+  DiscordSmartArtworkPreference,
   DiscordStatusDisplay,
 } from "../../types";
 
@@ -98,6 +99,23 @@ export const DISCORD_APP_NAME_OPTIONS: Array<{
   { value: "custom", label: "Custom text", helper: "Type a custom application name for the first line." },
 ];
 
+export const DISCORD_SMART_ARTWORK_PREFERENCE_OPTIONS: Array<{
+  value: DiscordSmartArtworkPreference;
+  label: string;
+  helper: string;
+}> = [
+  {
+    value: "music",
+    label: "Music prefer",
+    helper: "Keep Smart mode's current artwork behavior and prioritize media artwork when it exists.",
+  },
+  {
+    value: "app",
+    label: "App prefer",
+    helper: "Use the current foreground app icon as Smart mode's main artwork, while keeping music on the last line.",
+  },
+];
+
 export const DISCORD_TEMPLATE_TOKENS = [
   "{app}",
   "{title}",
@@ -112,6 +130,10 @@ export const DISCORD_TEMPLATE_TOKENS = [
 export function appendDiscordTemplateToken(currentValue: string, token: string) {
   const trimmed = String(currentValue ?? "").trim();
   return trimmed ? `${trimmed} ${token}` : token;
+}
+
+export function normalizeDiscordSmartArtworkPreference(value: unknown): DiscordSmartArtworkPreference {
+  return String(value ?? "").trim().toLowerCase() === "app" ? "app" : "music";
 }
 
 export function discordModeStatusDisplay(config: ClientConfig, mode: DiscordReportMode) {

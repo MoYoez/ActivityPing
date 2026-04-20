@@ -1,3 +1,4 @@
+mod addons;
 mod capture;
 mod custom;
 mod fixtures;

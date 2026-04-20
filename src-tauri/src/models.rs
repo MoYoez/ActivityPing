@@ -69,6 +69,10 @@ pub fn default_discord_smart_show_app_name() -> bool {
     false
 }
 
+pub fn default_discord_smart_artwork_preference() -> DiscordSmartArtworkPreference {
+    DiscordSmartArtworkPreference::default()
+}
+
 pub fn default_discord_use_app_artwork() -> bool {
     false
 }
@@ -161,6 +165,14 @@ pub enum DiscordAppNameMode {
     Custom,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DiscordSmartArtworkPreference {
+    #[default]
+    Music,
+    App,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppMessageTitleRule {
@@ -170,6 +182,8 @@ pub struct AppMessageTitleRule {
     pub pattern: String,
     #[serde(default)]
     pub text: String,
+    #[serde(default)]
+    pub buttons: Vec<DiscordRichPresenceButtonConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -366,6 +380,8 @@ pub struct ClientConfig {
     pub discord_smart_enable_music_countdown: bool,
     #[serde(default = "default_discord_smart_show_app_name")]
     pub discord_smart_show_app_name: bool,
+    #[serde(default = "default_discord_smart_artwork_preference")]
+    pub discord_smart_artwork_preference: DiscordSmartArtworkPreference,
     #[serde(default, rename = "discordUseMediaArtwork", skip_serializing)]
     pub legacy_discord_use_media_artwork: bool,
     #[serde(default = "default_discord_use_app_artwork")]
@@ -455,6 +471,7 @@ impl Default for ClientConfig {
             discord_custom_mode_custom_app_name: default_discord_custom_app_name(),
             discord_smart_enable_music_countdown: default_discord_smart_enable_music_countdown(),
             discord_smart_show_app_name: default_discord_smart_show_app_name(),
+            discord_smart_artwork_preference: default_discord_smart_artwork_preference(),
             legacy_discord_use_media_artwork: false,
             discord_use_app_artwork: default_discord_use_app_artwork(),
             discord_use_music_artwork: default_discord_use_music_artwork(),
@@ -780,6 +797,32 @@ pub struct DiscordDebugPayload {
     pub artwork_content_type: Option<String>,
     #[serde(default)]
     pub artwork_upload_error: Option<String>,
+    #[serde(default)]
+    pub buttons: Vec<DiscordRichPresenceButtonConfig>,
+    #[serde(default)]
+    pub party: Option<DiscordDebugParty>,
+    #[serde(default)]
+    pub secrets: Option<DiscordDebugSecrets>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordDebugParty {
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub size: Option<[i32; 2]>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordDebugSecrets {
+    #[serde(default)]
+    pub join: Option<String>,
+    #[serde(default)]
+    pub spectate: Option<String>,
+    #[serde(default)]
+    pub match_secret: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

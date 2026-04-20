@@ -4,7 +4,7 @@ import { RuleGroupsEditorSection } from "../../components/rules/RuleGroupsEditor
 import { openTextFile, saveTextFile } from "../../lib/fileExport";
 import { exportRulesJson, parseRulesJson } from "../../lib/rules";
 import type { CreateSettingsViewPropsArgs } from "../createSettingsViewProps";
-import { createAppMessageRuleGroup } from "../appConfig";
+import { createAppMessageRuleGroup, createAppMessageTitleRule } from "../appConfig";
 import { RULE_GROUP_PAGE_SIZE, TITLE_RULE_PAGE_SIZE } from "../appConstants";
 import { clampPage, clampRuleIndex, moveItem, pageForIndex } from "../appFormatting";
 
@@ -145,7 +145,7 @@ export function createRuleGroupsSectionProps(
       const nextIndex = args.activeRule?.titleRules.length ?? 0;
       args.patchRuleAt(args.activeRuleIndex, (rule) => ({
         ...rule,
-        titleRules: [...rule.titleRules, { mode: "plain", pattern: "", text: "" }],
+        titleRules: [...rule.titleRules, createAppMessageTitleRule()],
       }));
       args.setTitleRulePage(pageForIndex(nextIndex, TITLE_RULE_PAGE_SIZE));
     },
@@ -181,6 +181,7 @@ export function createRuleGroupsSectionProps(
       args.patchTitleRuleAt(args.activeRuleIndex, titleRuleIndex, (rule) => ({ ...rule, pattern: value })),
     onTitleRuleTextChange: (titleRuleIndex, value) =>
       args.patchTitleRuleAt(args.activeRuleIndex, titleRuleIndex, (rule) => ({ ...rule, text: value })),
+    patchTitleRuleAt: args.patchTitleRuleAt,
     patchRuleAt: args.patchRuleAt,
     patchRuleDiscordButtonAt: args.patchRuleDiscordButtonAt,
     normalizePositiveNumberInput: args.normalizePositiveNumberInput,

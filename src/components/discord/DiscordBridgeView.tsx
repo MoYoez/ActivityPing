@@ -3,12 +3,16 @@ import type {
   DiscordActivityType,
   DiscordAppNameMode,
   DiscordReportMode,
+  DiscordSmartArtworkPreference,
   DiscordStatusDisplay,
 } from "../../types";
 import { DiscordArtworkPublishingPanel } from "./DiscordArtworkPublishingPanel";
 import { DiscordCustomModePanel } from "./DiscordCustomModePanel";
 import { DiscordModeSettingsPanels } from "./DiscordModeSettingsPanels";
-import { DISCORD_REPORT_MODE_OPTIONS } from "./discordOptions";
+import {
+  DISCORD_REPORT_MODE_OPTIONS,
+  DISCORD_SMART_ARTWORK_PREFERENCE_OPTIONS,
+} from "./discordOptions";
 
 export function DiscordBridgeView({
   config,
@@ -64,6 +68,7 @@ export function DiscordBridgeView({
   onOpenCustomPresets,
   onDiscordSmartEnableMusicCountdownChange,
   onDiscordSmartShowAppNameChange,
+  onDiscordSmartArtworkPreferenceChange,
   onReportStoppedMediaChange,
   onDiscordUseAppArtworkChange,
   onDiscordUseMusicArtworkChange,
@@ -127,6 +132,7 @@ export function DiscordBridgeView({
   onOpenCustomPresets: () => void;
   onDiscordSmartEnableMusicCountdownChange: (value: boolean) => void;
   onDiscordSmartShowAppNameChange: (value: boolean) => void;
+  onDiscordSmartArtworkPreferenceChange: (value: DiscordSmartArtworkPreference) => void;
   onReportStoppedMediaChange: (value: boolean) => void;
   onDiscordUseAppArtworkChange: (value: boolean) => void;
   onDiscordUseMusicArtworkChange: (value: boolean) => void;
@@ -249,6 +255,25 @@ export function DiscordBridgeView({
                 checked={config.discordSmartEnableMusicCountdown}
                 onChange={(e) => onDiscordSmartEnableMusicCountdownChange(e.currentTarget.checked)}
               />
+            </label>
+          ) : null}
+          {config.discordReportMode === "mixed" ? (
+            <label className={toggleTileClass}>
+              <div>
+                <strong>Smart artwork priority</strong>
+                <span>Choose whether Smart mode uses music artwork or the current foreground app as the main image.</span>
+              </div>
+              <select
+                className={selectClass}
+                value={config.discordSmartArtworkPreference}
+                onChange={(e) => onDiscordSmartArtworkPreferenceChange(e.currentTarget.value as DiscordSmartArtworkPreference)}
+              >
+                {DISCORD_SMART_ARTWORK_PREFERENCE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
           ) : null}
           {config.discordReportMode === "mixed" ? (
