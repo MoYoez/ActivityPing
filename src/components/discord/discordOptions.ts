@@ -257,19 +257,26 @@ export function resolveDiscordLineChoice(value: string, forceCustom = false) {
     : DISCORD_CUSTOM_LINE_CUSTOM_VALUE;
 }
 
-export function discordLineCustomTextValue(value: string) {
+export function discordLineCustomTextValue(value: string, forceCustom = false) {
   const rawValue = String(value ?? "").trim();
   if (!rawValue || rawValue === DISCORD_CUSTOM_LINE_CUSTOM_VALUE) {
     return "";
   }
+  if (forceCustom) {
+    return rawValue;
+  }
   return isDiscordBuiltinLineChoice(rawValue) ? "" : rawValue;
 }
 
-export function nextDiscordLineValue(currentValue: string, nextChoice: string) {
+export function nextDiscordLineValue(
+  currentValue: string,
+  nextChoice: string,
+  forceCustom = false,
+) {
   if (nextChoice !== DISCORD_CUSTOM_LINE_CUSTOM_VALUE) {
     return nextChoice;
   }
 
-  const currentCustomValue = discordLineCustomTextValue(currentValue);
+  const currentCustomValue = discordLineCustomTextValue(currentValue, forceCustom);
   return currentCustomValue || DISCORD_CUSTOM_LINE_CUSTOM_VALUE;
 }

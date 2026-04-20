@@ -87,7 +87,7 @@ export function DiscordCustomPresetEditorModal({
   onMatchSecretChange: (value: string) => void;
 }) {
   return (
-    <section className="modal modal-open" onClick={onClose}>
+    <section className="modal modal-open">
       <div
         className="modal-box w-11/12 max-w-4xl p-0"
         role="dialog"

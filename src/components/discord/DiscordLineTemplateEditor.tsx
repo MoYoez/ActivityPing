@@ -32,6 +32,7 @@ export function DiscordLineTemplateEditor({
   onValueChange: (value: string) => void;
 }) {
   const resolvedChoice = resolveDiscordLineChoice(value, forceCustomChoice);
+  const customTextValue = discordLineCustomTextValue(value, forceCustomChoice);
 
   return (
     <>
@@ -43,7 +44,7 @@ export function DiscordLineTemplateEditor({
           onChange={(e) => {
             const nextChoice = e.currentTarget.value;
             setForceCustomChoice(nextChoice === DISCORD_CUSTOM_LINE_CUSTOM_VALUE);
-            onValueChange(nextDiscordLineValue(value, nextChoice));
+            onValueChange(nextDiscordLineValue(value, nextChoice, forceCustomChoice));
           }}
         >
           {DISCORD_CUSTOM_LINE_OPTIONS.map((option) => (
@@ -58,7 +59,7 @@ export function DiscordLineTemplateEditor({
           <span>{label} custom text</span>
           <input
             className={inputClass}
-            value={discordLineCustomTextValue(value)}
+            value={customTextValue}
             onChange={(e) => {
               setForceCustomChoice(true);
               onValueChange(e.currentTarget.value.trim() || DISCORD_CUSTOM_LINE_CUSTOM_VALUE);
@@ -68,7 +69,7 @@ export function DiscordLineTemplateEditor({
           <DiscordTemplateTokenRow
             onInsert={(token) => {
               setForceCustomChoice(true);
-              onValueChange(appendDiscordTemplateToken(discordLineCustomTextValue(value), token));
+              onValueChange(appendDiscordTemplateToken(customTextValue, token));
             }}
           />
         </label>

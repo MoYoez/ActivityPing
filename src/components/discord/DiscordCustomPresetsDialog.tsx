@@ -46,7 +46,7 @@ export function DiscordCustomPresetsDialog({
   onPresetPageChange: (page: number) => void;
 }) {
   return (
-    <section className="modal modal-open" onClick={onClose}>
+    <section className="modal modal-open">
       <div
         className="modal-box w-11/12 max-w-5xl p-0"
         role="dialog"

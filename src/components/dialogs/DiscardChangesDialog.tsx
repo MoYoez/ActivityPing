@@ -12,7 +12,7 @@ export function DiscardChangesDialog({
   onConfirm: () => void;
 }) {
   return (
-    <section className="modal modal-open" onClick={onClose}>
+    <section className="modal modal-open">
       <div
         className="modal-box w-11/12 max-w-xl p-0"
         role="dialog"
