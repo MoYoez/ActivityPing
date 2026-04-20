@@ -1,0 +1,243 @@
+use serde::{Deserialize, Serialize};
+
+use super::{
+    super::defaults::{
+        default_app_message_rules_show_process_name, default_capture_history_record_limit,
+        default_capture_history_title_limit, default_capture_reported_apps_enabled,
+        default_discord_activity_type, default_discord_app_name_mode,
+        default_discord_application_id, default_discord_artwork_worker_token,
+        default_discord_artwork_worker_upload_url, default_discord_asset_text,
+        default_discord_asset_text_mode, default_discord_custom_app_icon_source,
+        default_discord_custom_app_name, default_discord_custom_artwork_source,
+        default_discord_custom_asset_id, default_discord_details_format,
+        default_discord_music_app_name_mode, default_discord_smart_artwork_preference,
+        default_discord_smart_enable_music_countdown, default_discord_smart_show_app_name,
+        default_discord_state_format, default_discord_status_display,
+        default_discord_use_app_artwork, default_discord_use_custom_addons_override,
+        default_discord_use_music_artwork, default_heartbeat_interval_ms, default_poll_interval_ms,
+        default_report_foreground_app, default_report_media, default_report_play_source,
+        default_report_stopped_media, default_report_window_title,
+    },
+    discord::{
+        AppMessageRuleGroup, DiscordCustomAsset, DiscordCustomPreset,
+        DiscordRichPresenceButtonConfig,
+    },
+    enums::{
+        AppFilterMode, DiscordActivityType, DiscordAppNameMode, DiscordAssetTextMode,
+        DiscordCustomAppIconSource, DiscordCustomArtworkSource, DiscordReportMode,
+        DiscordSmartArtworkPreference, DiscordStatusDisplay,
+    },
+};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientConfig {
+    #[serde(default = "default_poll_interval_ms")]
+    pub poll_interval_ms: u64,
+    #[serde(default = "default_heartbeat_interval_ms")]
+    pub heartbeat_interval_ms: u64,
+    #[serde(default)]
+    pub runtime_autostart_enabled: bool,
+    #[serde(default, rename = "reporterEnabled", skip_serializing)]
+    pub legacy_reporter_enabled: bool,
+    #[serde(default = "default_report_foreground_app")]
+    pub report_foreground_app: bool,
+    #[serde(default = "default_report_window_title")]
+    pub report_window_title: bool,
+    #[serde(default = "default_report_media")]
+    pub report_media: bool,
+    #[serde(default = "default_report_stopped_media")]
+    pub report_stopped_media: bool,
+    #[serde(default = "default_report_play_source")]
+    pub report_play_source: bool,
+    #[serde(default, rename = "discordEnabled", skip_serializing)]
+    pub legacy_discord_enabled: bool,
+    #[serde(default = "default_discord_application_id")]
+    pub discord_application_id: String,
+    #[serde(default)]
+    pub discord_report_mode: DiscordReportMode,
+    #[serde(default = "default_discord_activity_type")]
+    pub discord_activity_type: DiscordActivityType,
+    #[serde(default, alias = "discordStatusDisplay", skip_serializing)]
+    pub legacy_discord_status_display: Option<DiscordStatusDisplay>,
+    #[serde(default, alias = "discordAppNameMode", skip_serializing)]
+    pub legacy_discord_app_name_mode: Option<DiscordAppNameMode>,
+    #[serde(default, alias = "discordCustomAppName", skip_serializing)]
+    pub legacy_discord_custom_app_name: Option<String>,
+    #[serde(default = "default_discord_status_display")]
+    pub discord_smart_status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_app_name_mode")]
+    pub discord_smart_app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub discord_smart_custom_app_name: String,
+    #[serde(default = "default_discord_status_display")]
+    pub discord_music_status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_music_app_name_mode")]
+    pub discord_music_app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub discord_music_custom_app_name: String,
+    #[serde(default = "default_discord_status_display")]
+    pub discord_app_status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_app_name_mode")]
+    pub discord_app_app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub discord_app_custom_app_name: String,
+    #[serde(default = "default_discord_status_display")]
+    pub discord_custom_mode_status_display: DiscordStatusDisplay,
+    #[serde(default = "default_discord_app_name_mode")]
+    pub discord_custom_mode_app_name_mode: DiscordAppNameMode,
+    #[serde(default = "default_discord_custom_app_name")]
+    pub discord_custom_mode_custom_app_name: String,
+    #[serde(default = "default_discord_smart_enable_music_countdown")]
+    pub discord_smart_enable_music_countdown: bool,
+    #[serde(default = "default_discord_smart_show_app_name")]
+    pub discord_smart_show_app_name: bool,
+    #[serde(default = "default_discord_smart_artwork_preference")]
+    pub discord_smart_artwork_preference: DiscordSmartArtworkPreference,
+    #[serde(default, rename = "discordUseMediaArtwork", skip_serializing)]
+    pub legacy_discord_use_media_artwork: bool,
+    #[serde(default = "default_discord_use_app_artwork")]
+    pub discord_use_app_artwork: bool,
+    #[serde(default = "default_discord_use_music_artwork")]
+    pub discord_use_music_artwork: bool,
+    #[serde(default = "default_discord_artwork_worker_upload_url")]
+    pub discord_artwork_worker_upload_url: String,
+    #[serde(default = "default_discord_artwork_worker_token")]
+    pub discord_artwork_worker_token: String,
+    #[serde(default = "default_discord_custom_artwork_source")]
+    pub discord_custom_artwork_source: DiscordCustomArtworkSource,
+    #[serde(default = "default_discord_asset_text_mode")]
+    pub discord_custom_artwork_text_mode: DiscordAssetTextMode,
+    #[serde(default = "default_discord_asset_text")]
+    pub discord_custom_artwork_text: String,
+    #[serde(default = "default_discord_custom_asset_id")]
+    pub discord_custom_artwork_asset_id: String,
+    #[serde(default = "default_discord_custom_app_icon_source")]
+    pub discord_custom_app_icon_source: DiscordCustomAppIconSource,
+    #[serde(default = "default_discord_asset_text_mode")]
+    pub discord_custom_app_icon_text_mode: DiscordAssetTextMode,
+    #[serde(default = "default_discord_asset_text")]
+    pub discord_custom_app_icon_text: String,
+    #[serde(default = "default_discord_custom_asset_id")]
+    pub discord_custom_app_icon_asset_id: String,
+    #[serde(default)]
+    pub discord_custom_assets: Vec<DiscordCustomAsset>,
+    #[serde(default = "default_discord_details_format")]
+    pub discord_details_format: String,
+    #[serde(default = "default_discord_state_format")]
+    pub discord_state_format: String,
+    #[serde(default)]
+    pub discord_custom_buttons: Vec<DiscordRichPresenceButtonConfig>,
+    #[serde(default)]
+    pub discord_custom_party_id: String,
+    #[serde(default)]
+    pub discord_custom_party_size_current: Option<u32>,
+    #[serde(default)]
+    pub discord_custom_party_size_max: Option<u32>,
+    #[serde(default)]
+    pub discord_custom_join_secret: String,
+    #[serde(default)]
+    pub discord_custom_spectate_secret: String,
+    #[serde(default)]
+    pub discord_custom_match_secret: String,
+    #[serde(default = "default_discord_use_custom_addons_override")]
+    pub discord_use_custom_addons_override: bool,
+    #[serde(default, alias = "discordCustomRules")]
+    pub discord_custom_presets: Vec<DiscordCustomPreset>,
+    #[serde(default)]
+    pub launch_on_startup: bool,
+    #[serde(default = "default_capture_reported_apps_enabled")]
+    pub capture_reported_apps_enabled: bool,
+    #[serde(default = "default_capture_history_record_limit")]
+    pub capture_history_record_limit: u32,
+    #[serde(default = "default_capture_history_title_limit")]
+    pub capture_history_title_limit: u32,
+    #[serde(default)]
+    pub app_message_rules: Vec<AppMessageRuleGroup>,
+    #[serde(default = "default_app_message_rules_show_process_name")]
+    pub app_message_rules_show_process_name: bool,
+    #[serde(default)]
+    pub app_filter_mode: AppFilterMode,
+    #[serde(default)]
+    pub app_blacklist: Vec<String>,
+    #[serde(default)]
+    pub app_whitelist: Vec<String>,
+    #[serde(default)]
+    pub app_name_only_list: Vec<String>,
+    #[serde(default)]
+    pub media_play_source_blocklist: Vec<String>,
+}
+
+impl Default for ClientConfig {
+    fn default() -> Self {
+        Self {
+            poll_interval_ms: default_poll_interval_ms(),
+            heartbeat_interval_ms: default_heartbeat_interval_ms(),
+            runtime_autostart_enabled: false,
+            legacy_reporter_enabled: false,
+            report_foreground_app: default_report_foreground_app(),
+            report_window_title: default_report_window_title(),
+            report_media: default_report_media(),
+            report_stopped_media: default_report_stopped_media(),
+            report_play_source: default_report_play_source(),
+            legacy_discord_enabled: false,
+            discord_application_id: default_discord_application_id(),
+            discord_report_mode: DiscordReportMode::default(),
+            discord_activity_type: default_discord_activity_type(),
+            legacy_discord_status_display: None,
+            legacy_discord_app_name_mode: None,
+            legacy_discord_custom_app_name: None,
+            discord_smart_status_display: default_discord_status_display(),
+            discord_smart_app_name_mode: default_discord_app_name_mode(),
+            discord_smart_custom_app_name: default_discord_custom_app_name(),
+            discord_music_status_display: default_discord_status_display(),
+            discord_music_app_name_mode: default_discord_music_app_name_mode(),
+            discord_music_custom_app_name: default_discord_custom_app_name(),
+            discord_app_status_display: default_discord_status_display(),
+            discord_app_app_name_mode: default_discord_app_name_mode(),
+            discord_app_custom_app_name: default_discord_custom_app_name(),
+            discord_custom_mode_status_display: default_discord_status_display(),
+            discord_custom_mode_app_name_mode: default_discord_app_name_mode(),
+            discord_custom_mode_custom_app_name: default_discord_custom_app_name(),
+            discord_smart_enable_music_countdown: default_discord_smart_enable_music_countdown(),
+            discord_smart_show_app_name: default_discord_smart_show_app_name(),
+            discord_smart_artwork_preference: default_discord_smart_artwork_preference(),
+            legacy_discord_use_media_artwork: false,
+            discord_use_app_artwork: default_discord_use_app_artwork(),
+            discord_use_music_artwork: default_discord_use_music_artwork(),
+            discord_artwork_worker_upload_url: default_discord_artwork_worker_upload_url(),
+            discord_artwork_worker_token: default_discord_artwork_worker_token(),
+            discord_custom_artwork_source: default_discord_custom_artwork_source(),
+            discord_custom_artwork_text_mode: default_discord_asset_text_mode(),
+            discord_custom_artwork_text: default_discord_asset_text(),
+            discord_custom_artwork_asset_id: default_discord_custom_asset_id(),
+            discord_custom_app_icon_source: default_discord_custom_app_icon_source(),
+            discord_custom_app_icon_text_mode: default_discord_asset_text_mode(),
+            discord_custom_app_icon_text: default_discord_asset_text(),
+            discord_custom_app_icon_asset_id: default_discord_custom_asset_id(),
+            discord_custom_assets: Vec::new(),
+            discord_details_format: default_discord_details_format(),
+            discord_state_format: default_discord_state_format(),
+            discord_custom_buttons: Vec::new(),
+            discord_custom_party_id: String::new(),
+            discord_custom_party_size_current: None,
+            discord_custom_party_size_max: None,
+            discord_custom_join_secret: String::new(),
+            discord_custom_spectate_secret: String::new(),
+            discord_custom_match_secret: String::new(),
+            discord_use_custom_addons_override: default_discord_use_custom_addons_override(),
+            discord_custom_presets: Vec::new(),
+            launch_on_startup: false,
+            capture_reported_apps_enabled: default_capture_reported_apps_enabled(),
+            capture_history_record_limit: default_capture_history_record_limit(),
+            capture_history_title_limit: default_capture_history_title_limit(),
+            app_message_rules: Vec::new(),
+            app_message_rules_show_process_name: default_app_message_rules_show_process_name(),
+            app_filter_mode: AppFilterMode::default(),
+            app_blacklist: Vec::new(),
+            app_whitelist: Vec::new(),
+            app_name_only_list: Vec::new(),
+            media_play_source_blocklist: Vec::new(),
+        }
+    }
+}

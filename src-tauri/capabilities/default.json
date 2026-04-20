@@ -1,13 +1,25 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "opener:default",
-    "autostart:allow-enable",
-    "autostart:allow-disable",
-    "autostart:allow-is-enabled"
+  "capabilities": [
+    {
+      "identifier": "default",
+      "description": "Base capability for the main window",
+      "windows": ["main"],
+      "permissions": [
+        "core:default",
+        "opener:default"
+      ]
+    },
+    {
+      "identifier": "desktop-autostart",
+      "description": "Desktop-only capability for launch on system startup",
+      "windows": ["main"],
+      "platforms": ["macOS", "windows", "linux"],
+      "permissions": [
+        "autostart:allow-enable",
+        "autostart:allow-disable",
+        "autostart:allow-is-enabled"
+      ]
+    }
   ]
 }

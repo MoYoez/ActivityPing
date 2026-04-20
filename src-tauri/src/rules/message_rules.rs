@@ -1,8 +1,9 @@
 use crate::models::{AppMessageRuleGroup, AppMessageTitleRule, AppTitleRuleMode};
 
 use super::{
-    non_empty, normalize_discord_buttons, normalize_party_size, ResolvedDiscordAddons,
-    ResolvedDiscordParty, ResolvedDiscordSecrets,
+    helpers::non_empty,
+    normalize::{normalize_discord_buttons, normalize_party_size},
+    ResolvedDiscordAddons, ResolvedDiscordParty, ResolvedDiscordSecrets,
 };
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct MessageRuleMatch {

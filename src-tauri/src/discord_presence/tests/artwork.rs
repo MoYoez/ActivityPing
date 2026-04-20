@@ -1,8 +1,8 @@
+use super::super::payload::DiscordPresenceAssetKind;
 use super::{
     super::*,
     fixtures::{artwork_config, sample_media},
 };
-use super::super::payload::DiscordPresenceAssetKind;
 use crate::{
     models::{DiscordCustomAppIconSource, DiscordCustomArtworkSource},
     platform::{MediaArtwork, MediaInfo},
@@ -13,8 +13,7 @@ fn presence_artwork_prefers_album_for_hover_text() {
     let config = artwork_config();
     let media = sample_media();
 
-    let artwork =
-        build_presence_artwork(&config, "code.exe", None, &media).expect("artwork");
+    let artwork = build_presence_artwork(&config, "code.exe", None, &media).expect("artwork");
 
     assert_eq!(artwork.hover_text, "Album Name");
 }
@@ -25,8 +24,7 @@ fn presence_artwork_falls_back_when_album_missing() {
     let mut media = sample_media();
     media.album.clear();
 
-    let artwork =
-        build_presence_artwork(&config, "code.exe", None, &media).expect("artwork");
+    let artwork = build_presence_artwork(&config, "code.exe", None, &media).expect("artwork");
 
     assert_eq!(artwork.hover_text, "Track Name / Artist Name");
 }

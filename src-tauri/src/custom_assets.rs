@@ -9,9 +9,7 @@ use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
 use crate::{
-    models::{
-        DiscordCustomAppIconSource, DiscordCustomAsset, DiscordCustomArtworkSource,
-    },
+    models::{DiscordCustomAppIconSource, DiscordCustomArtworkSource, DiscordCustomAsset},
     state_store,
 };
 
@@ -93,10 +91,7 @@ pub fn delete_discord_custom_asset(
     Ok(state.config.discord_custom_assets)
 }
 
-pub fn get_discord_custom_asset_preview(
-    app: &AppHandle,
-    asset_id: &str,
-) -> Result<String, String> {
+pub fn get_discord_custom_asset_preview(app: &AppHandle, asset_id: &str) -> Result<String, String> {
     let trimmed_id = asset_id.trim();
     if trimmed_id.is_empty() {
         return Err("A local resource id is required.".into());

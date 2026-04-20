@@ -47,20 +47,16 @@ pub fn should_capture_media_for_reporting(config: &ClientConfig) -> bool {
 
 pub fn should_capture_foreground_app_icon_for_reporting(config: &ClientConfig) -> bool {
     (config.discord_use_app_artwork && config.discord_report_mode != DiscordReportMode::Music)
-        || matches!(
-            config.discord_report_mode,
-            DiscordReportMode::Custom
-        ) && matches!(
-            config.discord_custom_artwork_source,
-            DiscordCustomArtworkSource::App
-        )
-        || matches!(
-            config.discord_report_mode,
-            DiscordReportMode::Custom
-        ) && matches!(
-            config.discord_custom_app_icon_source,
-            DiscordCustomAppIconSource::App
-        )
+        || matches!(config.discord_report_mode, DiscordReportMode::Custom)
+            && matches!(
+                config.discord_custom_artwork_source,
+                DiscordCustomArtworkSource::App
+            )
+        || matches!(config.discord_report_mode, DiscordReportMode::Custom)
+            && matches!(
+                config.discord_custom_app_icon_source,
+                DiscordCustomAppIconSource::App
+            )
 }
 
 pub fn should_capture_foreground_snapshot_for_reporting(config: &ClientConfig) -> bool {
