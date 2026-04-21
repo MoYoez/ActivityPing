@@ -150,4 +150,21 @@ impl Drop for DiscordPresenceRuntime {
 }
 
 #[cfg(test)]
+#[allow(unused_imports)]
+use crate::{
+    models::DiscordReportMode,
+    platform::MediaInfo,
+    rules::{ResolvedActivity, ResolvedDiscordAddons},
+};
+#[cfg(test)]
+#[allow(unused_imports)]
+use self::{
+    addons::{build_presence_buttons, select_presence_addons},
+    assets::{build_presence_artwork, build_presence_icon},
+    payload::{DiscordPresencePayload, DiscordPresenceStatusDisplayType},
+    text::{build_music_only_activity_name, build_smart_presence_text, build_status_display_type},
+    timestamps::{build_media_timestamps, should_skip_timestamp_update},
+};
+
+#[cfg(test)]
 mod tests;

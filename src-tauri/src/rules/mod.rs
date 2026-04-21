@@ -20,4 +20,14 @@ pub use types::{
 };
 
 #[cfg(test)]
+#[allow(unused_imports)]
+use crate::{
+    models::{ClientConfig, DiscordReportMode},
+    platform::{ForegroundSnapshot, MediaInfo},
+};
+#[cfg(test)]
+#[allow(unused_imports)]
+use self::discord_text::{build_discord_text, build_music_discord_text};
+
+#[cfg(test)]
 mod tests;
