@@ -6,7 +6,16 @@ use crate::{models::ClientConfig, platform::MediaInfo};
 
 use super::payload::DiscordPresencePayload;
 
+const MIN_STALLED_PROGRESS_DELTA_MS: u64 = 500;
+const STALLED_PROGRESS_REPEAT_THRESHOLD: u32 = 1;
 const TIMESTAMP_UPDATE_THRESHOLD_MS: i64 = 100;
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct PlaybackProgressState {
+    signature: String,
+    last_position_ms: Option<u64>,
+    stalled_repeats: u32,
+}
 
 pub(super) fn build_media_timestamps(
     config: &ClientConfig,
@@ -74,6 +83,55 @@ fn calc_paused_timestamps(position_ms: i64, duration_ms: i64) -> Option<(i64, i6
     Some((future_start, future_end))
 }
 
+pub(super) fn downgrade_stalled_playback_to_paused(
+    payload: &mut DiscordPresencePayload,
+    state: &mut PlaybackProgressState,
+    min_progress_delta_ms: u64,
+) {
+    let signature = payload.signature.as_str();
+    let position_ms = payload.media_position_ms;
+
+    if !payload.media_is_playing {
+        state.remember(signature, position_ms, 0);
+        return;
+    }
+
+    let (Some(position_ms), Some(duration_ms)) = (position_ms, payload.media_duration_ms) else {
+        state.remember(signature, position_ms, 0);
+        return;
+    };
+
+    let min_progress_delta_ms = min_progress_delta_ms.max(MIN_STALLED_PROGRESS_DELTA_MS);
+    let stalled = state.signature == signature
+        && state
+            .last_position_ms
+            .map(|last_position_ms| position_ms.abs_diff(last_position_ms) < min_progress_delta_ms)
+            .unwrap_or(false);
+    let stalled_repeats = if stalled {
+        state.stalled_repeats.saturating_add(1)
+    } else {
+        0
+    };
+    state.remember(signature, Some(position_ms), stalled_repeats);
+
+    if stalled_repeats < STALLED_PROGRESS_REPEAT_THRESHOLD {
+        return;
+    }
+
+    let (Ok(position_ms), Ok(duration_ms)) =
+        (i64::try_from(position_ms), i64::try_from(duration_ms))
+    else {
+        return;
+    };
+    let Some((started_at, ended_at)) = calc_paused_timestamps(position_ms, duration_ms) else {
+        return;
+    };
+
+    payload.media_is_playing = false;
+    payload.started_at_millis = Some(started_at);
+    payload.ended_at_millis = Some(ended_at);
+}
+
 pub(super) fn should_skip_timestamp_update(
     payload: &DiscordPresencePayload,
     last_sent_end_timestamp: Option<i64>,
@@ -90,4 +148,13 @@ pub(super) fn should_skip_timestamp_update(
     };
 
     last_end.abs_diff(next_end) < TIMESTAMP_UPDATE_THRESHOLD_MS as u64
+}
+
+impl PlaybackProgressState {
+    fn remember(&mut self, signature: &str, position_ms: Option<u64>, stalled_repeats: u32) {
+        self.signature.clear();
+        self.signature.push_str(signature);
+        self.last_position_ms = position_ms;
+        self.stalled_repeats = stalled_repeats;
+    }
 }

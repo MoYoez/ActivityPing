@@ -20,7 +20,10 @@ use super::{
             mark_stopped, set_discord_error, update_presence_heartbeat, update_presence_snapshot,
             DiscordPresenceInner,
         },
-        timestamps::should_skip_timestamp_update,
+        timestamps::{
+            downgrade_stalled_playback_to_paused, should_skip_timestamp_update,
+            PlaybackProgressState,
+        },
         DEFAULT_SYNC_INTERVAL,
     },
     capture::capture_local_presence,
@@ -41,15 +44,24 @@ pub(super) fn run_discord_presence_loop(
             .poll_interval_ms
             .max(DEFAULT_SYNC_INTERVAL.as_millis() as u64),
     );
+    let stalled_progress_delta_ms = (sync_interval.as_millis() as u64)
+        .saturating_div(2)
+        .max(500);
     let mut consecutive_errors = 0u32;
     let mut last_signature = String::new();
     let mut last_publish_signature = String::new();
     let mut last_sent_end_timestamp: Option<i64> = None;
     let mut activity_started_at = Some(Utc::now().timestamp_millis());
+    let mut playback_progress_state = PlaybackProgressState::default();
 
     while !stop_flag.load(Ordering::SeqCst) {
         match capture_local_presence(&config) {
             Ok(Some(mut payload)) => {
+                downgrade_stalled_playback_to_paused(
+                    &mut payload,
+                    &mut playback_progress_state,
+                    stalled_progress_delta_ms,
+                );
                 let signature_changed = payload.signature != last_signature;
                 if signature_changed {
                     last_signature = payload.signature.clone();
@@ -117,12 +129,14 @@ pub(super) fn run_discord_presence_loop(
                 last_signature.clear();
                 last_publish_signature.clear();
                 last_sent_end_timestamp = None;
+                playback_progress_state = PlaybackProgressState::default();
                 consecutive_errors = 0;
                 sleep_with_stop(sync_interval, &stop_flag);
             }
             Err(error) => {
                 discord_client = None;
                 last_sent_end_timestamp = None;
+                playback_progress_state = PlaybackProgressState::default();
                 consecutive_errors = consecutive_errors.saturating_add(1);
                 set_discord_error(&state, Some(error), false, run_id);
                 sleep_with_stop(error_backoff(consecutive_errors), &stop_flag);
