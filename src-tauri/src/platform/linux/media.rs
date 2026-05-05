@@ -106,11 +106,6 @@ fn download_artwork_from_url(url: &str) -> Option<MediaArtwork> {
         return None;
     }
 
-    let bytes = response.bytes().ok()?;
-    if bytes.is_empty() {
-        return None;
-    }
-
     let content_type = response
         .headers()
         .get("content-type")
@@ -122,7 +117,14 @@ fn download_artwork_from_url(url: &str) -> Option<MediaArtwork> {
                 .next()
         })
         .filter(|v| v.starts_with("image/"))
-        .map(str::to_string)
+        .map(str::to_string);
+
+    let bytes = response.bytes().ok()?;
+    if bytes.is_empty() {
+        return None;
+    }
+
+    let content_type = content_type
         .unwrap_or_else(|| detect_image_content_type(&bytes));
 
     Some(MediaArtwork {
