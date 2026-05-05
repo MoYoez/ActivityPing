@@ -36,6 +36,21 @@ pub struct MediaInfo {
     pub source_icon: Option<MediaArtwork>,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct MediaCaptureOptions {
+    pub include_artwork: bool,
+    pub include_source_icon: bool,
+}
+
+impl MediaCaptureOptions {
+    pub fn with_assets() -> Self {
+        Self {
+            include_artwork: true,
+            include_source_icon: true,
+        }
+    }
+}
+
 impl MediaInfo {
     pub fn is_empty(&self) -> bool {
         self.title.trim().is_empty()
@@ -67,14 +82,20 @@ impl MediaInfo {
 }
 
 #[cfg(target_os = "linux")]
-pub use linux::{get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing};
+pub use linux::{
+    get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing_with_options,
+};
 #[cfg(target_os = "macos")]
-pub use macos::{get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing};
+pub use macos::{
+    get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing_with_options,
+};
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-pub use stub::{get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing};
+pub use stub::{
+    get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing_with_options,
+};
 #[cfg(target_os = "windows")]
 pub use windows::{
-    get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing,
+    get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing_with_options,
 };
 
 #[cfg(target_os = "linux")]

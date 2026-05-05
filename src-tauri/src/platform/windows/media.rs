@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use windows::{
     core::HRESULT,
     Foundation::TimeSpan,
@@ -11,9 +13,14 @@ use windows::{
     Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED},
 };
 
-use crate::platform::{MediaArtwork, MediaInfo};
+use crate::platform::{MediaArtwork, MediaCaptureOptions, MediaInfo};
 
 use super::icons::read_source_app_icon;
+
+std::thread_local! {
+    static MEDIA_SESSION_MANAGER: RefCell<Option<GlobalSystemMediaTransportControlsSessionManager>> =
+        RefCell::new(None);
+}
 
 struct ComInitGuard {
     should_uninitialize: bool,
@@ -49,17 +56,42 @@ fn init_com_for_media() -> Result<ComInitGuard, String> {
     Err(format!("Failed to initialize WinRT: {result:?}"))
 }
 
-fn get_now_playing_native(include_assets: bool) -> Result<MediaInfo, String> {
+fn get_cached_media_session_manager(
+) -> Result<GlobalSystemMediaTransportControlsSessionManager, String> {
+    MEDIA_SESSION_MANAGER.with(|cache| {
+        if let Some(manager) = cache.borrow().as_ref().cloned() {
+            return Ok(manager);
+        }
+
+        let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
+            .map_err(|error| format!("Failed to request the media session manager: {error}"))?
+            .get()
+            .map_err(|error| format!("Failed to obtain the media session manager: {error}"))?;
+
+        *cache.borrow_mut() = Some(manager.clone());
+        Ok(manager)
+    })
+}
+
+fn clear_cached_media_session_manager() {
+    MEDIA_SESSION_MANAGER.with(|cache| {
+        cache.borrow_mut().take();
+    });
+}
+
+fn get_now_playing_native(options: MediaCaptureOptions) -> Result<MediaInfo, String> {
     let _com_guard = init_com_for_media()?;
 
-    let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
-        .map_err(|error| format!("Failed to request the media session manager: {error}"))?
-        .get()
-        .map_err(|error| format!("Failed to obtain the media session manager: {error}"))?;
-
-    let session = manager
-        .GetCurrentSession()
-        .map_err(|error| format!("Failed to read the current media session: {error}"))?;
+    let manager = get_cached_media_session_manager()?;
+    let session = match manager.GetCurrentSession() {
+        Ok(session) => session,
+        Err(_) => {
+            clear_cached_media_session_manager();
+            get_cached_media_session_manager()?
+                .GetCurrentSession()
+                .map_err(|error| format!("Failed to read the current media session: {error}"))?
+        }
+    };
 
     let source_app_id = session
         .SourceAppUserModelId()
@@ -90,12 +122,12 @@ fn get_now_playing_native(include_assets: bool) -> Result<MediaInfo, String> {
         .map(|value| value.to_string())
         .unwrap_or_default();
     let (duration_ms, position_ms) = read_media_timeline(&session);
-    let artwork = if include_assets {
+    let artwork = if options.include_artwork {
         read_media_artwork(&properties).unwrap_or_default()
     } else {
         None
     };
-    let source_icon = if include_assets {
+    let source_icon = if options.include_source_icon {
         read_source_app_icon(&source_app_id)
     } else {
         None
@@ -120,12 +152,12 @@ fn get_now_playing_native(include_assets: bool) -> Result<MediaInfo, String> {
     Ok(media)
 }
 
-pub fn get_now_playing() -> Result<MediaInfo, String> {
-    get_now_playing_native(true)
+pub fn get_now_playing_with_options(options: MediaCaptureOptions) -> Result<MediaInfo, String> {
+    get_now_playing_native(options)
 }
 
 pub(super) fn get_now_playing_for_self_test() -> Result<MediaInfo, String> {
-    get_now_playing_native(false)
+    get_now_playing_native(MediaCaptureOptions::default())
 }
 
 fn read_playback_status(session: &GlobalSystemMediaTransportControlsSession) -> bool {

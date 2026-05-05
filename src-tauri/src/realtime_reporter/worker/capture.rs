@@ -6,7 +6,8 @@ use std::{
 use crate::{
     models::ClientConfig,
     platform::{
-        get_foreground_snapshot_for_reporting, get_now_playing, ForegroundSnapshot, MediaInfo,
+        get_foreground_snapshot_for_reporting, get_now_playing_with_options, ForegroundSnapshot,
+        MediaCaptureOptions, MediaInfo,
     },
     rules::{
         should_capture_foreground_snapshot_for_reporting, should_capture_media_for_reporting,
@@ -44,7 +45,7 @@ pub(super) fn capture_media(
         return MediaInfo::default();
     }
 
-    match get_now_playing() {
+    match get_now_playing_with_options(MediaCaptureOptions::default()) {
         Ok(media) => {
             *last_media_error = None;
             media

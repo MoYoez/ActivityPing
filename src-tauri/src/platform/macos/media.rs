@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::platform::{MediaArtwork, MediaInfo};
+use crate::platform::{MediaArtwork, MediaCaptureOptions, MediaInfo};
 
 use super::{
     command::{
@@ -69,7 +69,11 @@ struct RawNowPlayingInfo {
 }
 
 pub fn get_now_playing() -> Result<MediaInfo, String> {
-    let media = match get_now_playing_via_nowplaying_cli() {
+    get_now_playing_with_options(MediaCaptureOptions::with_assets())
+}
+
+pub fn get_now_playing_with_options(options: MediaCaptureOptions) -> Result<MediaInfo, String> {
+    let media = match get_now_playing_via_nowplaying_cli(options) {
         Ok(media) => media,
         Err(NowPlayingCliError::TimedOut) => return Ok(MediaInfo::default()),
         Err(error) => return Err(error.into_user_message()),
@@ -80,7 +84,9 @@ pub fn get_now_playing() -> Result<MediaInfo, String> {
     Ok(media)
 }
 
-fn get_now_playing_via_nowplaying_cli() -> Result<MediaInfo, NowPlayingCliError> {
+fn get_now_playing_via_nowplaying_cli(
+    options: MediaCaptureOptions,
+) -> Result<MediaInfo, NowPlayingCliError> {
     let attempted = std::iter::once(NOWPLAYING_CLI)
         .chain(NOWPLAYING_CLI_FALLBACK_PATHS.iter().copied())
         .map(str::to_string)
@@ -158,24 +164,31 @@ fn get_now_playing_via_nowplaying_cli() -> Result<MediaInfo, NowPlayingCliError>
         .unwrap_or_else(|| !title.is_empty() || !artist.is_empty() || !album.is_empty());
     let duration_ms = seconds_to_millis(raw.duration).filter(|value| *value > 0);
     let position_ms = seconds_to_millis(raw.elapsed_time);
-    let artwork = raw
-        .artwork_data
-        .as_deref()
-        .and_then(decode_base64_image_payload)
-        .and_then(|bytes| {
-            let content_type = raw
-                .artwork_mime_type
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| value.starts_with("image/"))
-                .map(str::to_string)
-                .or_else(|| detect_image_content_type(&bytes).map(str::to_string))?;
-            Some(MediaArtwork {
-                bytes,
-                content_type,
+    let artwork = if options.include_artwork {
+        raw.artwork_data
+            .as_deref()
+            .and_then(decode_base64_image_payload)
+            .and_then(|bytes| {
+                let content_type = raw
+                    .artwork_mime_type
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| value.starts_with("image/"))
+                    .map(str::to_string)
+                    .or_else(|| detect_image_content_type(&bytes).map(str::to_string))?;
+                Some(MediaArtwork {
+                    bytes,
+                    content_type,
+                })
             })
-        });
-    let source_icon = read_source_app_icon(&source_app_id);
+    } else {
+        None
+    };
+    let source_icon = if options.include_source_icon {
+        read_source_app_icon(&source_app_id)
+    } else {
+        None
+    };
 
     Ok(MediaInfo {
         title,

@@ -1,8 +1,11 @@
 use crate::{
-    models::{ClientConfig, DiscordReportMode},
+    models::{
+        ClientConfig, DiscordCustomAppIconSource, DiscordCustomArtworkSource, DiscordReportMode,
+        DiscordSmartArtworkPreference,
+    },
     platform::{
-        get_foreground_app_icon, get_foreground_snapshot_for_reporting, get_now_playing,
-        ForegroundSnapshot, MediaInfo,
+        get_foreground_app_icon, get_foreground_snapshot_for_reporting,
+        get_now_playing_with_options, ForegroundSnapshot, MediaCaptureOptions, MediaInfo,
     },
     rules::{
         resolve_activity, should_capture_foreground_app_icon_for_reporting,
@@ -95,10 +98,57 @@ fn capture_foreground_snapshot(config: &ClientConfig) -> Result<ForegroundSnapsh
 
 fn capture_media(config: &ClientConfig) -> MediaInfo {
     if should_capture_media_for_reporting(config) {
-        get_now_playing().unwrap_or_else(|_| MediaInfo::default())
+        get_now_playing_with_options(media_capture_options(config))
+            .unwrap_or_else(|_| MediaInfo::default())
     } else {
         MediaInfo::default()
     }
+}
+
+fn media_capture_options(config: &ClientConfig) -> MediaCaptureOptions {
+    let include_artwork = should_capture_music_artwork(config);
+    let include_source_icon = should_capture_playback_source_icon(config);
+    if include_artwork && include_source_icon {
+        MediaCaptureOptions::with_assets()
+    } else {
+        MediaCaptureOptions {
+            include_artwork,
+            include_source_icon,
+        }
+    }
+}
+
+fn should_capture_music_artwork(config: &ClientConfig) -> bool {
+    match config.discord_report_mode {
+        DiscordReportMode::Music | DiscordReportMode::Mixed => {
+            config.discord_use_music_artwork && !smart_mode_prefers_app_artwork(config)
+        }
+        DiscordReportMode::Custom => match config.discord_custom_artwork_source {
+            DiscordCustomArtworkSource::Auto => config.discord_use_music_artwork,
+            DiscordCustomArtworkSource::Music => true,
+            DiscordCustomArtworkSource::None
+            | DiscordCustomArtworkSource::App
+            | DiscordCustomArtworkSource::Library => false,
+        },
+        DiscordReportMode::App => false,
+    }
+}
+
+fn should_capture_playback_source_icon(config: &ClientConfig) -> bool {
+    match config.discord_report_mode {
+        DiscordReportMode::Music | DiscordReportMode::Mixed => {
+            config.discord_use_music_artwork && !smart_mode_prefers_app_artwork(config)
+        }
+        DiscordReportMode::Custom => {
+            config.discord_custom_app_icon_source == DiscordCustomAppIconSource::Source
+        }
+        DiscordReportMode::App => false,
+    }
+}
+
+fn smart_mode_prefers_app_artwork(config: &ClientConfig) -> bool {
+    config.discord_report_mode == DiscordReportMode::Mixed
+        && config.discord_smart_artwork_preference == DiscordSmartArtworkPreference::App
 }
 
 fn capture_foreground_app_icon(config: &ClientConfig) -> Option<crate::platform::MediaArtwork> {

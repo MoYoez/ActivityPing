@@ -16,6 +16,12 @@ pub fn get_now_playing() -> Result<MediaInfo, String> {
     Ok(MediaInfo::default())
 }
 
+pub fn get_now_playing_with_options(
+    _options: super::MediaCaptureOptions,
+) -> Result<MediaInfo, String> {
+    get_now_playing()
+}
+
 pub fn get_foreground_app_icon() -> Result<Option<super::MediaArtwork>, String> {
     Ok(None)
 }
