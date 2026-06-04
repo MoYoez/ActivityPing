@@ -2,13 +2,8 @@ use std::process::{Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub(super) const COMMAND_TIMEOUT: Duration = Duration::from_millis(1500);
+pub(super) const COMMAND_TIMEOUT: Duration = Duration::from_millis(5000);
 pub(super) const COMMAND_POLL_STEP: Duration = Duration::from_millis(100);
-pub(super) const NOWPLAYING_CLI: &str = "nowplaying-cli";
-pub(super) const NOWPLAYING_CLI_FALLBACK_PATHS: [&str; 2] = [
-    "/opt/homebrew/bin/nowplaying-cli",
-    "/usr/local/bin/nowplaying-cli",
-];
 
 pub(super) enum CommandError {
     NotFound,

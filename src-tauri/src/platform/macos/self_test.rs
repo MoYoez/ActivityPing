@@ -189,11 +189,11 @@ fn macos_guidance(error: &str, probe: &str) -> Vec<ProbeTextSpec> {
         ));
     }
 
-    if probe == "media" || lower.contains("nowplaying-cli") {
+    if probe == "media" || lower.contains("mediaremote-adapter") {
         guidance.push(localized_text(
-            "platformSelfTest.guidance.macosInstallNowPlayingCli",
+            "platformSelfTest.guidance.macosMediaRemoteAdapter",
             None,
-            "Install nowplaying-cli first: `brew install nowplaying-cli`.",
+            "The macOS now-playing adapter is prepared automatically by `pnpm tauri dev` / `pnpm tauri build`. If media capture fails, run `pnpm prepare:mediaremote-adapter` manually.",
         ));
         guidance.push(localized_text(
             "platformSelfTest.guidance.macosMediaEmpty",

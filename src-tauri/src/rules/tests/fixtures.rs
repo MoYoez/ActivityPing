@@ -15,7 +15,7 @@ pub(super) fn sample_media() -> MediaInfo {
         title: "Track Name".into(),
         artist: "Artist Name".into(),
         album: "Album Name".into(),
-        is_playing: true,
+        playback_state: "playing".into(),
         ..MediaInfo::default()
     }
 }

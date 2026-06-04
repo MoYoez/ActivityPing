@@ -13,7 +13,10 @@ use windows::{
     Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED},
 };
 
-use crate::platform::{MediaArtwork, MediaCaptureOptions, MediaInfo};
+use crate::platform::{
+    MediaArtwork, MediaCaptureOptions, MediaInfo, PLAYBACK_STATE_PAUSED, PLAYBACK_STATE_PLAYING,
+    PLAYBACK_STATE_STOPPED,
+};
 
 use super::icons::read_source_app_icon;
 
@@ -98,7 +101,7 @@ fn get_now_playing_native(options: MediaCaptureOptions) -> Result<MediaInfo, Str
         .ok()
         .map(|value| value.to_string())
         .unwrap_or_default();
-    let is_playing = read_playback_status(&session);
+    let playback_state = read_playback_state(&session);
 
     let properties = session
         .TryGetMediaPropertiesAsync()
@@ -138,7 +141,7 @@ fn get_now_playing_native(options: MediaCaptureOptions) -> Result<MediaInfo, Str
         artist,
         album,
         source_app_id,
-        is_playing,
+        playback_state,
         duration_ms,
         position_ms,
         artwork,
@@ -160,13 +163,24 @@ pub(super) fn get_now_playing_for_self_test() -> Result<MediaInfo, String> {
     get_now_playing_native(MediaCaptureOptions::default())
 }
 
-fn read_playback_status(session: &GlobalSystemMediaTransportControlsSession) -> bool {
-    session
+fn read_playback_state(session: &GlobalSystemMediaTransportControlsSession) -> String {
+    let status = session
         .GetPlaybackInfo()
         .ok()
-        .and_then(|info| info.PlaybackStatus().ok())
-        .map(|status| status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing)
-        .unwrap_or(false)
+        .and_then(|info| info.PlaybackStatus().ok());
+
+    match status {
+        Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing) => {
+            PLAYBACK_STATE_PLAYING.to_string()
+        }
+        Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused) => {
+            PLAYBACK_STATE_PAUSED.to_string()
+        }
+        Some(GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped) => {
+            PLAYBACK_STATE_STOPPED.to_string()
+        }
+        _ => String::new(),
+    }
 }
 
 fn read_media_timeline(

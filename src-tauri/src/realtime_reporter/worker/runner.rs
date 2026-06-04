@@ -6,7 +6,9 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::{models::ClientConfig, rules::resolve_activity};
+use crate::{
+    models::ClientConfig, platform::subscribe_foreground_changes, rules::resolve_activity,
+};
 
 use super::{
     super::{
@@ -16,7 +18,7 @@ use super::{
     },
     activity::{build_report_log_payload, build_reporter_activity},
     capture::{capture_foreground_snapshot, capture_media},
-    lifecycle::sleep_with_stop,
+    lifecycle::sleep_with_stop_and_wakeup,
 };
 
 pub(super) fn run_reporter_loop(
@@ -39,6 +41,15 @@ pub(super) fn run_reporter_loop(
     let mut last_emit_at: Option<SystemTime> = None;
     let mut consecutive_errors: u32 = 0;
     let mut last_media_error: Option<String> = None;
+
+    // Wake the loop the moment the foreground app changes (where supported)
+    // instead of waiting out the full poll interval. Only worth subscribing
+    // when we actually report foreground app or window title.
+    let foreground_wakeup = if config.report_foreground_app || config.report_window_title {
+        subscribe_foreground_changes()
+    } else {
+        None
+    };
 
     while !stop_flag.load(Ordering::SeqCst) {
         let mut iteration_had_error = false;
@@ -142,7 +153,7 @@ pub(super) fn run_reporter_loop(
             poll_interval
         };
 
-        sleep_with_stop(effective_sleep, &stop_flag);
+        sleep_with_stop_and_wakeup(effective_sleep, &stop_flag, foreground_wakeup.as_ref());
     }
 
     mark_stopped(&state, None, run_id);

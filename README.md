@@ -103,7 +103,7 @@ Foreground, window-title, and media detection are platform-specific.
 - **macOS**
   - Foreground app capture uses the native bridge.
   - Window title capture requires Accessibility permission.
-  - Media capture requires `nowplaying-cli` (`brew install nowplaying-cli`).
+  - Media capture uses a bundled `mediaremote-adapter` (prepared automatically during `pnpm tauri dev` / `pnpm tauri build`), so no extra install is required.
 - **Linux**
   - **X11**: foreground and title capture require `xprop`.
   - **GNOME Wayland**: requires `gdbus` and the [Focused Window D-Bus](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) extension.
@@ -156,7 +156,6 @@ This project is licensed under the [GNU General Public License v3.0](./LICENSE).
 
 ## Thanks
 
-- [nowplaying-cli](https://github.com/kirtan-shah/nowplaying-cli)
 - [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter)
 - [discord-music-presence](https://github.com/ungive/discord-music-presence)
 - [waken-wa](https://github.com/MoYoez/waken-wa)

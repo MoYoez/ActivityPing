@@ -60,6 +60,21 @@ pub fn run() {
         .setup(|app| {
             #[cfg(desktop)]
             {
+                #[cfg(target_os = "macos")]
+                {
+                    for resource_path in ["resources/mediaremote-adapter", "mediaremote-adapter"] {
+                        if let Ok(resource_root) = app
+                            .path()
+                            .resolve(resource_path, tauri::path::BaseDirectory::Resource)
+                        {
+                            if resource_root.exists() {
+                                platform::set_macos_mediaremote_adapter_root(resource_root);
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 app.handle()
                     .plugin(init_autostart(
                         MacosLauncher::LaunchAgent,

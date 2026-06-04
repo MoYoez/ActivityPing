@@ -8,7 +8,7 @@ macOS should be considered working when all of the following are true:
 
 1. Foreground app detection returns the current frontmost app name.
 2. Window title detection returns the focused window title for apps that expose one.
-3. Media detection can read active now-playing data through `nowplaying-cli`.
+3. Media detection can read active now-playing data through the bundled `mediaremote-adapter`.
 4. The built-in self-test reports `Foreground app capture OK`.
 5. When the self-test is run against an app with a visible titled window and Accessibility permission is granted, it should report `Window title capture OK`.
 6. Media self-test should report either `Media capture OK` or `No media is currently playing`.
@@ -48,14 +48,14 @@ Foreground app icon detection works best when the frontmost app exposes a bundle
 
 ## Media detection requirements
 
-Media detection is considered normal when:
+Media detection uses a bundled `mediaremote-adapter` (an upstream Perl script plus `MediaRemoteAdapter.framework`) invoked through `/usr/bin/perl`. It is considered normal when:
 
-- `nowplaying-cli` is installed and executable
-- the binary is available in `PATH`, `/opt/homebrew/bin/nowplaying-cli`, or `/usr/local/bin/nowplaying-cli`
+- the adapter resource exists under `src-tauri/resources/mediaremote-adapter` (script + framework binary)
+- `/usr/bin/perl` is available (ships with macOS)
 - the current media app exposes usable now-playing metadata
 
-Install command:
+The adapter is prepared automatically by the `pnpm prepare:mediaremote-adapter` step that runs before `pnpm tauri dev` / `pnpm tauri build`. It is downloaded and built from source (requires `git` and `cmake` at prepare time) and bundled into the app via the `resources` entry in `tauri.conf.json`. To prepare it manually:
 
-- `brew install nowplaying-cli`
+- `pnpm prepare:mediaremote-adapter`
 
-`No media is currently playing` is a normal self-test result when playback is idle. A failure is only expected when `nowplaying-cli` is missing, times out, or returns invalid data.
+`No media is currently playing` is a normal self-test result when playback is idle. A failure is only expected when the adapter resource is missing, the call times out, or it returns invalid data.

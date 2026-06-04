@@ -9,7 +9,7 @@ fn paused_media_uses_future_timestamps_when_visible() {
         ..ClientConfig::default()
     };
     let mut media = sample_media();
-    media.is_playing = false;
+    media.playback_state = "paused".into();
     media.position_ms = Some(30_000);
     media.duration_ms = Some(180_000);
 

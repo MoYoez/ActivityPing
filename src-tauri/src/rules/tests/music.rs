@@ -29,7 +29,7 @@ fn music_mode_can_keep_paused_media_visible() {
     let mut config = base_config();
     config.report_stopped_media = true;
     let mut media = sample_media();
-    media.is_playing = false;
+    media.playback_state = "paused".into();
 
     let resolved = build_music_discord_text(&config, &media, false);
 
@@ -43,7 +43,7 @@ fn music_mode_can_keep_paused_media_visible() {
 fn music_mode_hides_paused_media_by_default() {
     let config = base_config();
     let mut media = sample_media();
-    media.is_playing = false;
+    media.playback_state = "paused".into();
 
     let resolved = build_music_discord_text(&config, &media, false);
 

@@ -64,7 +64,7 @@ pub(super) fn capture_local_presence(
         } else {
             None
         },
-        media_is_playing: media.is_playing,
+        media_is_playing: media.is_playing(),
         summary: text.summary,
         signature: text.signature,
         artwork: build_presence_artwork(

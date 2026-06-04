@@ -13,6 +13,8 @@ pub use icons::get_foreground_app_icon;
 pub use media::get_now_playing_with_options;
 pub use self_test::{request_accessibility_permission, run_self_test};
 
+pub use bridge::subscribe_foreground_changes;
+
 pub fn read_bundle_display_name(bundle_identifier: &str) -> Option<String> {
     bridge::read_bundle_display_name(bundle_identifier)
 }

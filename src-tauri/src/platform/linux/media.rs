@@ -1,4 +1,7 @@
-use crate::platform::{MediaArtwork, MediaCaptureOptions, MediaInfo};
+use crate::platform::{
+    MediaArtwork, MediaCaptureOptions, MediaInfo, PLAYBACK_STATE_PAUSED, PLAYBACK_STATE_PLAYING,
+    PLAYBACK_STATE_STOPPED,
+};
 
 use super::{
     command::{command_output_with_timeout, EmptyFallback},
@@ -17,7 +20,7 @@ pub fn get_now_playing_with_options(options: MediaCaptureOptions) -> Result<Medi
         &[
             "metadata",
             "--format",
-            "{{title}}\n{{artist}}\n{{album}}\n{{playerName}}\n{{mpris:length}}\n{{mpris:artUrl}}",
+            "{{status}}\n{{title}}\n{{artist}}\n{{album}}\n{{playerName}}\n{{mpris:length}}\n{{mpris:artUrl}}",
         ],
     )
     .map_err(|error| format!("Failed to run playerctl: {error}"))?;
@@ -39,11 +42,11 @@ pub fn get_now_playing_with_options(options: MediaCaptureOptions) -> Result<Medi
     }
 
     let mut lines = stdout.lines().map(str::trim);
+    let playback_state = normalize_playback_state(lines.next().unwrap_or_default());
     let title = lines.next().unwrap_or_default().to_string();
     let artist = lines.next().unwrap_or_default().to_string();
     let album = lines.next().unwrap_or_default().to_string();
     let source_app_id = lines.next().unwrap_or_default().to_string();
-    let is_playing = read_player_status()?;
     let duration_ms = parse_playerctl_length_ms(lines.next().unwrap_or_default());
     let position_ms = read_player_position_ms().unwrap_or(None);
     let source_icon = if options.include_source_icon {
@@ -64,7 +67,7 @@ pub fn get_now_playing_with_options(options: MediaCaptureOptions) -> Result<Medi
         artist,
         album,
         source_app_id,
-        is_playing,
+        playback_state,
         duration_ms,
         position_ms,
         artwork,
@@ -97,7 +100,9 @@ fn download_artwork_from_url(url: &str) -> Option<MediaArtwork> {
     }
 
     let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(ARTWORK_DOWNLOAD_TIMEOUT_MS))
+        .timeout(std::time::Duration::from_millis(
+            ARTWORK_DOWNLOAD_TIMEOUT_MS,
+        ))
         .build()
         .ok()?;
 
@@ -110,12 +115,7 @@ fn download_artwork_from_url(url: &str) -> Option<MediaArtwork> {
         .headers()
         .get("content-type")
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| {
-            v.trim()
-                .trim_start_matches("data:")
-                .split(';')
-                .next()
-        })
+        .and_then(|v| v.trim().trim_start_matches("data:").split(';').next())
         .filter(|v| v.starts_with("image/"))
         .map(str::to_string);
 
@@ -124,8 +124,7 @@ fn download_artwork_from_url(url: &str) -> Option<MediaArtwork> {
         return None;
     }
 
-    let content_type = content_type
-        .unwrap_or_else(|| detect_image_content_type(&bytes));
+    let content_type = content_type.unwrap_or_else(|| detect_image_content_type(&bytes));
 
     Some(MediaArtwork {
         bytes: bytes.to_vec(),
@@ -159,13 +158,9 @@ fn decode_inline_data_url(data_url: &str) -> Option<MediaArtwork> {
 fn detect_image_content_type(bytes: &[u8]) -> String {
     if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
         "image/jpeg".to_string()
-    } else if bytes.len() >= 8
-        && bytes[..8] == [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]
-    {
+    } else if bytes.len() >= 8 && bytes[..8] == [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A] {
         "image/png".to_string()
-    } else if bytes.len() >= 6
-        && (bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a"))
-    {
+    } else if bytes.len() >= 6 && (bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a")) {
         "image/gif".to_string()
     } else if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
         "image/webp".to_string()
@@ -208,26 +203,13 @@ fn parse_playerctl_position_ms(value: &str) -> Option<u64> {
     (seconds.is_finite() && seconds >= 0.0).then_some((seconds * 1_000.0).round() as u64)
 }
 
-fn read_player_status() -> Result<bool, String> {
-    let output = command_output_with_timeout("playerctl", &["status"])
-        .map_err(|error| format!("Failed to run playerctl status: {error}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    if !output.status.success() {
-        let combined = format!("{}\n{}", stdout, stderr).to_lowercase();
-        if combined.contains("no players found")
-            || combined.contains("no player could handle this command")
-        {
-            return Ok(false);
-        }
-        return Err(stderr
-            .trim()
-            .if_empty(stdout.trim())
-            .if_empty("playerctl status returned an error")
-            .to_string());
+/// Normalizes a playerctl `{{status}}` value (e.g. "Playing", "Paused",
+/// "Stopped") to the platform-wide playback-state string.
+fn normalize_playback_state(value: &str) -> String {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "playing" => PLAYBACK_STATE_PLAYING.to_string(),
+        "paused" => PLAYBACK_STATE_PAUSED.to_string(),
+        "stopped" => PLAYBACK_STATE_STOPPED.to_string(),
+        _ => String::new(),
     }
-
-    Ok(stdout.trim().eq_ignore_ascii_case("playing"))
 }

@@ -4,7 +4,10 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "prepare:mediaremote-adapter": "node scripts/prepare-mediaremote-adapter.mjs",
+    "predev": "pnpm prepare:mediaremote-adapter",
     "dev": "vite",
+    "prebuild": "pnpm prepare:mediaremote-adapter",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "icons": "tauri icon src-tauri/icons/base.png",

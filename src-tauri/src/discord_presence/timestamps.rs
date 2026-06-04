@@ -36,7 +36,7 @@ pub(super) fn build_media_timestamps(
         return (None, None);
     };
 
-    if !media.is_playing {
+    if !media.is_playing() {
         let Some(duration_ms) = duration_ms else {
             return (None, None);
         };

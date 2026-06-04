@@ -7,8 +7,6 @@
 #import <dispatch/dispatch.h>
 #import <stdlib.h>
 
-void MRMediaRemoteGetNowPlayingInfo(dispatch_queue_t queue, void (^handler)(NSDictionary *info));
-
 char *waken_frontmost_app_name(void) {
     NSRunningApplication *frontmostApp = [[NSWorkspace sharedWorkspace] frontmostApplication];
     if (!frontmostApp) return NULL;
@@ -82,43 +80,6 @@ bool waken_request_accessibility_permission(void) {
         (__bridge NSString *)kAXTrustedCheckOptionPrompt : @YES
     };
     return AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
-}
-
-char *waken_media_now_playing_json(void) {
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    __block char *result = NULL;
-
-    MRMediaRemoteGetNowPlayingInfo(
-        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-        ^(NSDictionary *info) {
-            if (!info) {
-                dispatch_semaphore_signal(sem);
-                return;
-            }
-
-            NSString *title = info[@"kMRMediaRemoteNowPlayingInfoTitle"] ?: @"";
-            NSString *artist = info[@"kMRMediaRemoteNowPlayingInfoArtist"] ?: @"";
-            NSString *album = info[@"kMRMediaRemoteNowPlayingInfoAlbum"] ?: @"";
-
-            NSDictionary *payload = @{
-                @"title": title,
-                @"artist": artist,
-                @"album": album,
-                @"sourceAppId": @"MediaRemote"
-            };
-
-            NSError *error = nil;
-            NSData *jsonData = [NSJSONSerialization dataWithJSONObject:payload options:0 error:&error];
-            if (!error && jsonData) {
-                NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-                result = strdup([jsonString UTF8String]);
-            }
-            dispatch_semaphore_signal(sem);
-        }
-    );
-
-    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)));
-    return result;
 }
 
 char *waken_bundle_icon_png_base64(const char *bundle_identifier, int target_size) {
@@ -215,6 +176,26 @@ char *waken_bundle_display_name(const char *bundle_identifier) {
     if (!displayName || displayName.length == 0) return NULL;
 
     return strdup([displayName UTF8String]);
+}
+
+static waken_foreground_change_callback g_foreground_callback = NULL;
+static dispatch_once_t g_foreground_observer_once;
+
+void waken_register_foreground_change_observer(waken_foreground_change_callback callback) {
+    g_foreground_callback = callback;
+    dispatch_once(&g_foreground_observer_once, ^{
+        NSNotificationCenter *center = [[NSWorkspace sharedWorkspace] notificationCenter];
+        void (^handler)(NSNotification *) = ^(NSNotification *_Nonnull __unused note) {
+            waken_foreground_change_callback fn = g_foreground_callback;
+            if (fn != NULL) {
+                fn();
+            }
+        };
+        [center addObserverForName:NSWorkspaceDidActivateApplicationNotification
+                            object:nil
+                             queue:[NSOperationQueue mainQueue]
+                        usingBlock:handler];
+    });
 }
 
 void waken_string_free(char *value) {

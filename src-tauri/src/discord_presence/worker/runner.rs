@@ -11,6 +11,7 @@ use discord_rich_presence::DiscordIpcClient;
 
 use crate::{
     artwork_server::ArtworkPublisher, backend_locale::BackendLocale, models::ClientConfig,
+    platform::subscribe_foreground_changes,
 };
 
 use super::{
@@ -27,7 +28,7 @@ use super::{
         DEFAULT_SYNC_INTERVAL,
     },
     capture::capture_local_presence,
-    lifecycle::{error_backoff, sleep_with_stop},
+    lifecycle::{error_backoff, sleep_with_stop, sleep_with_stop_and_wakeup},
 };
 
 pub(super) fn run_discord_presence_loop(
@@ -53,6 +54,14 @@ pub(super) fn run_discord_presence_loop(
     let mut last_sent_end_timestamp: Option<i64> = None;
     let mut activity_started_at = Some(Utc::now().timestamp_millis());
     let mut playback_progress_state = PlaybackProgressState::default();
+
+    // Re-sync presence as soon as the foreground app changes (where supported)
+    // rather than waiting out the full sync interval.
+    let foreground_wakeup = if config.report_foreground_app || config.report_window_title {
+        subscribe_foreground_changes()
+    } else {
+        None
+    };
 
     while !stop_flag.load(Ordering::SeqCst) {
         match capture_local_presence(&config) {
@@ -80,7 +89,11 @@ pub(super) fn run_discord_presence_loop(
                 if should_skip_timestamp_update(&payload, last_sent_end_timestamp) {
                     update_presence_heartbeat(&state, true, None, run_id);
                     consecutive_errors = 0;
-                    sleep_with_stop(sync_interval, &stop_flag);
+                    sleep_with_stop_and_wakeup(
+                        sync_interval,
+                        &stop_flag,
+                        foreground_wakeup.as_ref(),
+                    );
                     continue;
                 }
 
@@ -108,7 +121,11 @@ pub(super) fn run_discord_presence_loop(
                                 None
                             };
                         consecutive_errors = 0;
-                        sleep_with_stop(sync_interval, &stop_flag);
+                        sleep_with_stop_and_wakeup(
+                            sync_interval,
+                            &stop_flag,
+                            foreground_wakeup.as_ref(),
+                        );
                     }
                     Err(error) => {
                         discord_client = None;
@@ -131,7 +148,7 @@ pub(super) fn run_discord_presence_loop(
                 last_sent_end_timestamp = None;
                 playback_progress_state = PlaybackProgressState::default();
                 consecutive_errors = 0;
-                sleep_with_stop(sync_interval, &stop_flag);
+                sleep_with_stop_and_wakeup(sync_interval, &stop_flag, foreground_wakeup.as_ref());
             }
             Err(error) => {
                 discord_client = None;
