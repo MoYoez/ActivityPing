@@ -163,12 +163,7 @@ fn read_now_playing_with_adapter(
 }
 
 fn build_media_info(raw: RawNowPlayingInfo, options: MediaCaptureOptions) -> MediaInfo {
-    let title = normalize_text(raw.title);
-    let artist = normalize_text(raw.artist);
-    let album = normalize_text(raw.album);
     let source_app_id = resolve_source_app_id(&raw);
-    let playback_state =
-        normalize_playback_state(raw.playing, raw.playback_rate, &title, &artist, &album);
     let duration_ms = micros_to_ms(raw.duration_micros).filter(|value| *value > 0);
     let position_ms = resolve_position_ms(&raw);
 
@@ -185,6 +180,12 @@ fn build_media_info(raw: RawNowPlayingInfo, options: MediaCaptureOptions) -> Med
     } else {
         None
     };
+
+    let title = normalize_text(raw.title);
+    let artist = normalize_text(raw.artist);
+    let album = normalize_text(raw.album);
+    let playback_state =
+        normalize_playback_state(raw.playing, raw.playback_rate, &title, &artist, &album);
 
     MediaInfo {
         title,

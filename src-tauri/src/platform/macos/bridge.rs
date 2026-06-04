@@ -36,7 +36,7 @@ extern "C" fn foreground_change_trampoline() {
 /// (`NSWorkspaceDidActivateApplicationNotification`). The native observer is
 /// registered once, on first subscription. Each app switch sends a `()` on the
 /// returned receiver so an idle capture loop can re-capture immediately.
-pub(super) fn subscribe_foreground_changes() -> Receiver<()> {
+pub fn subscribe_foreground_changes() -> Receiver<()> {
     let lock = FOREGROUND_SUBSCRIBERS.get_or_init(|| {
         unsafe { waken_register_foreground_change_observer(foreground_change_trampoline) };
         Mutex::new(Vec::new())
